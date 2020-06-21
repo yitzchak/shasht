@@ -15,22 +15,26 @@
              (write-line (shasht-parse-error-message condition) stream))))
 
 
-(defun read-json-char (input-stream value &optional skip-whitespace)
+(defun read-json-char (input-stream value &optional skip-whitespace (case-sensitive t))
   (when skip-whitespace
     (peek-char t input-stream))
   (let ((ch (read-char input-stream nil)))
     (cond
       ((null ch)
         (error 'shasht-parse-error :message (format nil "Expected the next character to be ~A but encountered end of file first." value)))
-      ((char= value ch)
+      ((or (and case-sensitive (char= value ch))
+           (and (not case-sensitive) (char-equal value ch)))
         ch)
       (t
         (error 'shasht-parse-error :message (format nil "Expected the next character to be ~A but found ~A instead." value ch))))))
 
 
-(defun read-json-char* (input-stream value &optional skip-whitespace)
-  (when (char= value (peek-char skip-whitespace input-stream))
-    (read-char input-stream)))
+(defun read-json-char* (input-stream value &optional skip-whitespace (case-sensitive t))
+  (let ((ch (peek-char skip-whitespace input-stream nil)))
+    (when (and ch
+               (or (and case-sensitive (char= value ch))
+                   (and (not case-sensitive) (char-equal value ch))))
+      (read-char input-stream))))
 
 
 (defun read-json-token (input-stream token result &optional skip-whitespace)
@@ -168,15 +172,30 @@
 
 
 (defun read-json-fraction (input-stream value)
-  (do ((mult 1d-1 (* mult 1d-1))
+  (do ((exponent -1 (1- exponent))
        (result value)
-       (weight (read-digit* input-stream) (read-digit* input-stream)))
+       (weight (read-digit input-stream) (read-digit* input-stream)))
       ((not weight) result)
-    (setq result (+ result (* mult weight)))))
+    (setq result (+ result (* (expt (coerce 10 *read-default-float-format*) exponent) weight)))))
 
 
 (defun read-json-integer (input-stream)
   (do* ((negative (read-json-char* input-stream #\-))
+        (result 0)
+        (weight (read-digit input-stream) (read-digit* input-stream)))
+       ((not weight)
+         (if negative
+           (- result)
+           result))
+    (when (and (zerop result) (zerop weight))
+      (return 0))
+    (setq result (+ (* 10 result) weight))))
+
+
+(defun read-json-exponent (input-stream)
+  (do* ((negative (if (read-json-char* input-stream #\+)
+                    nil
+                    (read-json-char* input-stream #\-)))
         (result 0)
         (weight (read-digit input-stream) (read-digit* input-stream)))
        ((not weight)
@@ -188,12 +207,10 @@
 
 (defun read-json-number (input-stream)
   (let ((value (read-json-integer input-stream)))
-    (when (eql #\. (peek-char nil input-stream nil))
-      (read-char input-stream)
+    (when (read-json-char* input-stream #\.)
       (setq value (read-json-fraction input-stream value)))
-    (when (equalp #\e (peek-char nil input-stream nil))
-      (read-char input-stream)
-      (setq value (* value (expt 10d0 (read-json-integer input-stream)))))
+    (when (read-json-char* input-stream #\e nil nil)
+      (setq value (* value (expt (coerce 10 *read-default-float-format*) (read-json-exponent input-stream)))))
     value))
 
 
