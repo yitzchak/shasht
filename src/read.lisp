@@ -116,13 +116,13 @@
     (cond
       ((null ch)
         (error 'shasht-parse-error :message (format nil "Unexpected end of file in string.")))
-      ((graphic-char-p ch) ; Need to check this against unicode, also is delete allowed in JSON strings?
+      ((control-char-p ch)
+        (error 'shasht-parse-error :message (format nil "Control character found in string.")))
+      (t
         (vector-push (if (char= ch #\\)
                        (read-json-escape input-stream)
                        ch)
-                     result))
-      (t
-        (error 'shasht-parse-error :message (format nil "Non graphic character found in string."))))))
+                     result)))))
 
 
 (defun read-json-object (input-stream)
