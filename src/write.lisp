@@ -9,9 +9,6 @@
   (with-output-to-string (output-stream)
     (write-json object output-stream)))
 
-(defun control-char-p (char-code)
-  (< char-code 32))
-
 (defun ascii-printable-p (char-code)
   (<= 32 char-code 126))
 
@@ -34,6 +31,19 @@
        ,@body
        (write-char #\} ,os))))
 
+(defmethod write-json ((object hash-table) &optional output-stream)
+  (write-object output-stream
+                (maphash (lambda (key val)
+                           (write-object-key-value key val output-stream))
+                         object)))
+
+
+(defun write-json-alist (alist &optional output-stream)
+  (write-object output-stream
+                (dolist (pair alist)
+                  (write-object-key-value (car pair) (cdr pair) output-stream))))
+
+
 (defmethod write-json ((object string) &optional output-stream)
   (write-char #\" output-stream)
   (do ((index 0 (1+ index)))
@@ -47,7 +57,7 @@
           (write-string "\\r" output-stream))
         ((char= ch #\tab)
           (write-string "\\t" output-stream))
-        ((char= ch #\formfeed)
+        ((char= ch #\page)
           (write-string "\\f" output-stream))
         ((char= ch #\backspace)
           (write-string "\\b" output-stream))
@@ -55,10 +65,10 @@
           (write-string "\\\"" output-stream))
         ((char= ch #\\)
           (write-string "\\\\" output-stream))
-        ((control-char-p code)
+        ((not (graphic-char-p ch))
           (format output-stream "\\u~4,'0x" code))
         ((or (not *ascii-encoding*)
-        (ascii-printable-p code))
+             (ascii-printable-p code))
           (write-char ch output-stream))
         ((supplementary-plane-p code)
           (format output-stream "\\u~4,'0x\\u~4,'0x"
