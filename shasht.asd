@@ -11,5 +11,6 @@
       :components
         ((:file "packages")
          (:file "utils")
+         (:file "config")
          (:file "read")
          (:file "write")))))

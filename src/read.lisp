@@ -1,12 +1,5 @@
 (in-package :shasht)
 
-(defvar *true* t)
-(defvar *false* nil)
-(defvar *null* :null)
-(defvar *array* :vector)
-(defvar *object* :hash-table)
-
-
 (define-condition shasht-parse-error (parse-error)
   ((message
      :initarg :message
@@ -14,10 +7,15 @@
   (:report (lambda (condition stream)
              (write-line (shasht-parse-error-message condition) stream))))
 
+(defun skip-whitespace (input-stream)
+  (do ((ch (peek-char nil input-stream nil) (peek-char nil input-stream nil)))
+      ((not (member ch '(#\space #\newline #\return #\tab) :test #'equal)))
+    (read-char input-stream)))
+
 
 (defun read-json-char (input-stream value &optional skip-whitespace (case-sensitive t))
   (when skip-whitespace
-    (peek-char t input-stream))
+    (skip-whitespace input-stream))
   (let ((ch (read-char input-stream nil)))
     (cond
       ((null ch)
@@ -30,7 +28,9 @@
 
 
 (defun read-json-char* (input-stream value &optional skip-whitespace (case-sensitive t))
-  (let ((ch (peek-char skip-whitespace input-stream nil)))
+  (when skip-whitespace
+    (skip-whitespace input-stream))
+  (let ((ch (peek-char nil input-stream nil)))
     (when (and ch
                (or (and case-sensitive (char= value ch))
                    (and (not case-sensitive) (char-equal value ch))))
@@ -215,8 +215,9 @@
 
 
 (defun read-json (&optional (input-stream *standard-input*) (eof-error-p t) eof-value single-value-p)
-  (prog1
-    (let ((ch (peek-char t input-stream nil :eof)))
+  (prog2
+    (skip-whitespace input-stream)
+    (let ((ch (peek-char nil input-stream nil :eof)))
       (case ch
         (#\{
           (read-json-object input-stream))
@@ -239,7 +240,8 @@
         (otherwise
           (error 'shasht-parse-error :message (format nil "Unexpected character ~A found." ch)))))
     (when single-value-p
-      (let ((ch (peek-char t input-stream nil)))
+      (skip-whitespace input-stream)
+      (let ((ch (peek-char nil input-stream nil)))
         (when ch
           (error 'shasht-parse-error :message (format nil "Unexpected character ~A found at end of file." ch)))))))
 
