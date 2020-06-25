@@ -125,10 +125,10 @@
       ((control-char-p ch)
         (error 'shasht-parse-error :message (format nil "Control character found in string.")))
       (t
-        (vector-push (if (char= ch #\\)
-                       (read-json-escape input-stream)
-                       ch)
-                     result)))))
+        (vector-push-extend (if (char= ch #\\)
+                              (read-json-escape input-stream)
+                              ch)
+                            result)))))
 
 
 (defmacro read-json-object-with-handlers (initial extend clone)
