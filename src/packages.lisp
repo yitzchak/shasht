@@ -3,6 +3,7 @@
   (:export
     #:from-json
     #:read-json
+    #:with-object
     #:to-json
     #:write-json))
 

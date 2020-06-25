@@ -1,11 +1,13 @@
 (in-package :shasht)
 
+
 (define-condition shasht-parse-error (parse-error)
   ((message
      :initarg :message
      :reader shasht-parse-error-message))
   (:report (lambda (condition stream)
              (write-line (shasht-parse-error-message condition) stream))))
+
 
 (defun skip-whitespace (input-stream)
   (do ((ch (peek-char nil input-stream nil) (peek-char nil input-stream nil)))
@@ -129,34 +131,82 @@
                      result)))))
 
 
+(defmacro read-json-object-with-handlers (initial extend clone)
+  (alexandria:with-gensyms (result-var key-var)
+    `(prog ((,result-var ,initial) ,key-var)
+       (read-json-char *standard-input* #\{ t)
+       (when (read-json-char* *standard-input* #\} t)
+         (return (,clone ,result-var)))
+      read-key-value
+       (setq ,key-var (read-json-string *standard-input*))
+       (read-json-char *standard-input* #\: t)
+       (,extend ,key-var (read-json *standard-input*) ,result-var)
+       (when (read-json-char* *standard-input* #\, t)
+         (go read-key-value))
+       (read-json-char *standard-input* #\} t)
+       (return (,clone ,result-var)))))
+
+
+(defmacro alist-push (key value alist)
+  `(setf ,alist (acons ,key ,value ,alist)))
+
+
+(defun hash-table-extend (key value hash-table)
+  (setf (gethash key hash-table) value))
+
+
 (defun read-json-object (input-stream)
-  (read-json-char input-stream #\{ t)
-  (prog ((result (make-hash-table :test #'equal))
-         key)
-    (when (read-json-char* input-stream #\} t)
-      (return result))
-   read-key-value
-    (setf key (read-json-string input-stream))
-    (read-json-char input-stream #\: t)
-    (setf (gethash key result) (read-json input-stream))
-    (when (read-json-char* input-stream #\, t)
-      (go read-key-value))
-    (read-json-char input-stream #\} t)
-    (return result)))
+  (let ((*standard-input* (or input-stream *standard-input*)))
+    (ecase *read-default-object-format*
+      (:hash-table
+        (read-json-object-with-handlers (make-hash-table :test #'equal) hash-table-extend identity))
+      (:alist
+        (read-json-object-with-handlers nil alist-push nreverse))
+      (otherwise
+        (error 'shasht-parse-error :message (format nil "Unknown array format specified in *read-default-object-format* of ~A." *read-default-object-format*))))))
+
+
+; (defun read-json-object (input-stream)
+;   (read-json-char input-stream #\{ t)
+;   (prog ((result (make-hash-table :test #'equal))
+;          key)
+;     (when (read-json-char* input-stream #\} t)
+;       (return result))
+;    read-key-value
+;     (setf key (read-json-string input-stream))
+;     (read-json-char input-stream #\: t)
+;     (setf (gethash key result) (read-json input-stream))
+;     (when (read-json-char* input-stream #\, t)
+;       (go read-key-value))
+;     (read-json-char input-stream #\} t)
+;     (return result)))
+
+()
+
+
+(defmacro read-json-array-with-handlers (initial extend clone)
+  (alexandria:with-gensyms (result-var)
+    `(prog ((,result-var ,initial))
+       (read-json-char *standard-input* #\[ t)
+       (when (read-json-char* *standard-input* #\] t)
+         (return (,clone ,result-var)))
+      read-item
+       (,extend (read-json *standard-input*) ,result-var)
+       (when (read-json-char* *standard-input* #\, t)
+         (go read-item))
+       (read-json-char *standard-input* #\] t)
+       (return (,clone ,result-var)))))
 
 
 (defun read-json-array (input-stream)
-  (read-json-char input-stream #\[ t)
-  (prog (result)
-    (when (read-json-char* input-stream #\] t)
-      (return (nreverse result)))
-   read-item
-    (push (read-json input-stream) result)
-    (when (read-json-char* input-stream #\, t)
-      (go read-item))
-    (read-json-char input-stream #\] t)
-    (return (nreverse result))))
-
+  (let ((*standard-input* (or input-stream *standard-input*)))
+    (case *read-default-array-format*
+      (:list
+        (read-json-array-with-handlers nil push nreverse))
+      (:vector
+        (read-json-array-with-handlers (make-array 32 :adjustable t :fill-pointer 0) vector-push-extend identity))
+      (otherwise
+        (error 'shasht-parse-error :message (format nil "Unknown array format specified in *read-default-array-format* of ~A." *read-default-array-format*))))))
 
 ; (defun read-json-array (input-stream)
 ;   (read-json-char input-stream #\[)
@@ -228,11 +278,11 @@
         ((#\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
           (read-json-number input-stream))
         (#\t
-          (read-json-token input-stream "true" *true*))
+          (read-json-token input-stream "true" *read-default-true-value*))
         (#\f
-          (read-json-token input-stream "false" *false*))
+          (read-json-token input-stream "false" *read-default-false-value*))
         (#\n
-          (read-json-token input-stream "null" *null*))
+          (read-json-token input-stream "null" *read-default-null-value*))
         (:eof
           (when eof-error-p
             (error 'end-of-file :stream input-stream))

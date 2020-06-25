@@ -60,14 +60,18 @@
 (test-control-chars "st-json" #'st-json:write-json-to-string)
 (test-control-chars "yason" (lambda (s) (with-output-to-string (f) (yason:encode s f))))
 
+(defparameter *results* nil)
+
 (defun test-parse (name parse-json)
   (format t "Test of ~A parsing~%" name)
   (let ((s "{\"key1\":\"value\",\"key2\":1,\"key3\":[\"Hello\",1.2e-34]}")
 ;  (let ((s "{\"key1\":\"value\",\"key2\":1.1,\"key3\":[\"Hello\",1.2]}")
-        (iter 100000))
+        (iter 1000000)
+        (st (get-internal-run-time)))
     (time
       (dotimes (_ iter)
-        (apply parse-json (list s))))))
+        (apply parse-json (list s))))
+    (push (cons name (- (get-internal-run-time) st)) *results*)))
 
 (test-parse "cl-json" #'cl-json:decode-json-from-string)
 (test-parse "jonathan" (lambda (s) (jojo:parse s :as :alist)))
@@ -76,4 +80,10 @@
 (test-parse "shasht" #'shasht:from-json)
 (test-parse "st-json" #'st-json:read-json)
 (test-parse "yason" #'yason:parse)
+
+(format t "~S~%" (sort
+  (let ((min-time (apply #'min (mapcar #'cdr *results*))))
+    (mapcar (lambda (pair) (cons (car pair) (coerce (/ (cdr pair) min-time) 'double-float))) *results*))
+ #'< :key #'cdr))
+
 
