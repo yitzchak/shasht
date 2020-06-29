@@ -1,24 +1,42 @@
 (in-package :shasht)
 
-
 (define-condition shasht-parse-error (parse-error)
   ((message
      :initarg :message
-     :reader shasht-parse-error-message))
+     :reader shasht-parse-error-message
+     :type string))
   (:report (lambda (condition stream)
              (write-line (shasht-parse-error-message condition) stream))))
 
 
-(defun skip-whitespace (input-stream)
-  (do ((ch (peek-char nil input-stream nil) (peek-char nil input-stream nil)))
-      ((not (member ch '(#\space #\newline #\return #\tab) :test #'equal)))
-    (read-char input-stream)))
+;(declaim (inline skip-whitespace))
 
+;(defun skip-whitespace (input-stream)
+ ; (declare (type stream input-stream))
+;  (do ((ch (peek-char nil input-stream nil) (peek-char nil input-stream nil)))
+;      ((not (member ch '(#\space #\newline #\return #\tab) :test #'equal)))
+;    (read-char input-stream)))
+
+(defun skip-whitespace (input-stream)
+  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (declare (type stream input-stream))
+  (tagbody
+   read-next
+   (when (member (peek-char nil input-stream nil) '(#\space #\newline #\return #\tab) :test #'equal)
+     (read-char input-stream)
+     (go read-next))))
+
+
+;(declaim (ftype (function (input-stream value &optional skip-whitespace case-sensitive) chacter) square))
 
 (defun read-json-char (input-stream value &optional skip-whitespace (case-sensitive t))
+  (declare (type stream input-stream)
+           (type character value)
+           (type boolean skip-whitespace case-sensitive))
   (when skip-whitespace
     (skip-whitespace input-stream))
   (let ((ch (read-char input-stream nil)))
+    (declare (type (or null character) ch))
     (cond
       ((null ch)
         (error 'shasht-parse-error :message (format nil "Expected the next character to be ~A but encountered end of file first." value)))
@@ -30,9 +48,13 @@
 
 
 (defun read-json-char* (input-stream value &optional skip-whitespace (case-sensitive t))
+  (declare (type stream input-stream)
+           (type character value)
+           (type boolean skip-whitespace case-sensitive))
   (when skip-whitespace
     (skip-whitespace input-stream))
   (let ((ch (peek-char nil input-stream nil)))
+    (declare (type (or null character) ch))
     (when (and ch
                (or (and case-sensitive (char= value ch))
                    (and (not case-sensitive) (char-equal value ch))))
@@ -40,22 +62,34 @@
 
 
 (defun read-json-token (input-stream token result &optional skip-whitespace)
+  (declare (type stream input-stream)
+           (type simple-string token)
+           (type boolean skip-whitespace))
   (dotimes (pos (length token) result)
-    (read-json-char input-stream (char token pos) (and skip-whitespace (zerop pos)))))
+    (read-json-char input-stream (char token pos) (and skip-whitespace (zerop pos))))
+  (values))
 
 
 (defun read-digit* (input-stream &optional (radix 10))
+  (declare (type stream input-stream)
+           (type fixnum radix))
   (let* ((ch (peek-char nil input-stream nil))
          (weight (when ch
                    (digit-char-p ch radix))))
+    (declare (type (or null character) ch)
+             (type (or null fixnum) weight))
     (when weight
       (read-char input-stream)
       weight)))
 
 
 (defun read-digit (input-stream &optional (radix 10))
+  (declare (type stream input-stream)
+           (type fixnum radix))
   (let* ((ch (read-char input-stream nil))
          (weight (when ch (digit-char-p ch radix))))
+    (declare (type (or null character) ch)
+             (type (or null fixnum) weight))
     (cond
       ((null ch)
         (error 'shasht-parse-error :message (format nil "Expected the next character to be a digit in base ~A but encountered end of file first." radix)))
@@ -66,10 +100,12 @@
 
 
 (defun high-surrogate-p (code)
+  (declare (type fixnum code))
   (<= #xd800 code #xdfff))
 
 
 (defun read-encoded-char (input-stream)
+  (declare (type stream input-stream))
   (logior (ash (read-digit input-stream 16) 12)
           (ash (read-digit input-stream 16) 8)
           (ash (read-digit input-stream 16) 4)
@@ -77,8 +113,7 @@
 
 
 (defun read-json-escape (input-stream)
-  (declare (type stream input-stream)
-           (optimize (debug 0) (safety 0) (speed 3)))
+  (declare (type stream input-stream))
   (let ((ch (read-char input-stream nil :eof)))
     (case ch
       (:eof
@@ -115,6 +150,7 @@
 
 
 (defun read-json-string (input-stream)
+  (declare (type stream input-stream))
   (read-json-char input-stream #\" t)
   (do ((ch (read-char input-stream nil) (read-char input-stream nil))
        (result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character)))
