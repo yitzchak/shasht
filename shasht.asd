@@ -12,5 +12,6 @@
         ((:file "packages")
          (:file "utils")
          (:file "config")
+         (:file "interface")
          (:file "read")
          (:file "write")))))

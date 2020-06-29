@@ -9,13 +9,91 @@
              (write-line (shasht-parse-error-message condition) stream))))
 
 
-;(declaim (inline skip-whitespace))
+(defstruct json-expression
+  (type :value)
+  value
+  (key nil))
 
-;(defun skip-whitespace (input-stream)
- ; (declare (type stream input-stream))
-;  (do ((ch (peek-char nil input-stream nil) (peek-char nil input-stream nil)))
-;      ((not (member ch '(#\space #\newline #\return #\tab) :test #'equal)))
-;    (read-char input-stream)))
+
+(defclass reader-state ()
+  ((expression-stack
+     :accessor expression-stack
+     :initform nil)
+   (eof-error-p
+     :accessor eof-error-p
+     :initarg :eof-error-p)
+   (eof-value
+     :accessor eof-value
+     :initarg :eof-value)
+   (input-stream
+     :accessor input-stream
+     :initarg :input-stream)))
+
+
+(defmethod json-array-begin ((instance reader-state))
+  (push (make-json-expression :type :array
+                              :value (unless (eql *read-default-array-format* :list)
+                                       (make-array 32 :adjustable t :fill-pointer 0)))
+        (expression-stack instance)))
+
+
+(defmethod json-array-end ((instance reader-state))
+  (let ((expr (pop (expression-stack instance))))
+    (json-value instance
+           (if (eql *read-default-array-format* :list)
+             (nreverse (json-expression-value expr))
+             (json-expression-value expr)))))
+
+
+(defmethod json-object-begin ((instance reader-state))
+  (push (make-json-expression :type :object
+                              :value (unless (eql *read-default-object-format* :alist)
+                                       (make-hash-table :test #'equal)))
+        (expression-stack instance)))
+
+
+(defmethod json-object-end ((instance reader-state))
+  (let ((expr (pop (expression-stack instance))))
+    (json-value instance
+           (if (eql *read-default-object-format* :alist)
+             (nreverse (json-expression-value expr))
+             (json-expression-value expr)))))
+
+
+(defmethod json-key ((instance reader-state) key)
+  (setf (json-expression-key (first (expression-stack instance))) key))
+
+
+(defmethod json-value ((instance reader-state) value)
+  (let ((expr (first (expression-stack instance)))
+        (inter-value (case value
+                       (:true *read-default-true-value*)
+                       (:false *read-default-false-value*)
+                       (:null *read-default-null-value*)
+                       (otherwise value))))
+    (cond
+      ((null expr)
+        (push (make-json-expression :value inter-value) (expression-stack instance)))
+      ((and (eql :array (json-expression-type expr))
+            (eql :list *read-default-array-format*))
+        (push inter-value (json-expression-value expr)))
+      ((eql :array (json-expression-type expr))
+        (vector-push-extend inter-value (json-expression-value expr)))
+      ((eql :alist *read-default-object-format*)
+        (push (cons (json-expression-key expr) inter-value) (json-expression-value expr)))
+      (t
+        (setf (gethash (json-expression-key expr) (json-expression-value expr)) inter-value)))))
+
+
+(defmethod json-eof ((instance reader-state))
+  (when (eof-error-p instance)
+    (error 'end-of-file :stream (input-stream instance)))
+  (push (eof-value instance) (expression-stack instance)))
+
+
+(defmethod json-error ((instance reader-state) control &rest args)
+  (error 'shasht-parse-error :message (apply #'format nil control args)))
+
 
 (defun skip-whitespace (input-stream)
   (declare (optimize (speed 3) (debug 0) (safety 0)))
@@ -27,9 +105,7 @@
      (go read-next))))
 
 
-;(declaim (ftype (function (input-stream value &optional skip-whitespace case-sensitive) chacter) square))
-
-(defun read-json-char (input-stream value &optional skip-whitespace (case-sensitive t))
+(defun read-json-char (handler input-stream value &optional skip-whitespace (case-sensitive t))
   (declare (type stream input-stream)
            (type character value)
            (type boolean skip-whitespace case-sensitive))
@@ -39,15 +115,15 @@
     (declare (type (or null character) ch))
     (cond
       ((null ch)
-        (error 'shasht-parse-error :message (format nil "Expected the next character to be ~A but encountered end of file first." value)))
+        (json-error handler "Expected the next character to be ~A but encountered end of file first." value))
       ((or (and case-sensitive (char= value ch))
            (and (not case-sensitive) (char-equal value ch)))
         ch)
       (t
-        (error 'shasht-parse-error :message (format nil "Expected the next character to be ~A but found ~A instead." value ch))))))
+        (json-error handler "Expected the next character to be ~A but found ~A instead." value ch)))))
 
 
-(defun read-json-char* (input-stream value &optional skip-whitespace (case-sensitive t))
+(defun read-json-char* (handler input-stream value &optional skip-whitespace (case-sensitive t))
   (declare (type stream input-stream)
            (type character value)
            (type boolean skip-whitespace case-sensitive))
@@ -61,16 +137,16 @@
       (read-char input-stream))))
 
 
-(defun read-json-token (input-stream token result &optional skip-whitespace)
+(defun read-json-token-into-handler (handler input-stream token result &optional skip-whitespace)
   (declare (type stream input-stream)
            (type simple-string token)
            (type boolean skip-whitespace))
   (dotimes (pos (length token) result)
-    (read-json-char input-stream (char token pos) (and skip-whitespace (zerop pos))))
-  (values))
+    (read-json-char handler input-stream (char token pos) (and skip-whitespace (zerop pos))))
+  (json-value handler result))
 
 
-(defun read-digit* (input-stream &optional (radix 10))
+(defun read-digit* (handler input-stream &optional (radix 10))
   (declare (type stream input-stream)
            (type fixnum radix))
   (let* ((ch (peek-char nil input-stream nil))
@@ -83,7 +159,7 @@
       weight)))
 
 
-(defun read-digit (input-stream &optional (radix 10))
+(defun read-digit (handler input-stream &optional (radix 10))
   (declare (type stream input-stream)
            (type fixnum radix))
   (let* ((ch (read-char input-stream nil))
@@ -92,11 +168,11 @@
              (type (or null fixnum) weight))
     (cond
       ((null ch)
-        (error 'shasht-parse-error :message (format nil "Expected the next character to be a digit in base ~A but encountered end of file first." radix)))
+        (json-error handler "Expected the next character to be a digit in base ~A but encountered end of file first." radix))
       (weight
         weight)
       (t
-        (error 'shasht-parse-error :message (format nil "Expected the next character to be a digit in base ~A but found ~A instead." radix ch))))))
+        (json-error handler "Expected the next character to be a digit in base ~A but found ~A instead." radix ch)))))
 
 
 (defun high-surrogate-p (code)
@@ -104,20 +180,20 @@
   (<= #xd800 code #xdfff))
 
 
-(defun read-encoded-char (input-stream)
+(defun read-encoded-char (handler input-stream)
   (declare (type stream input-stream))
-  (logior (ash (read-digit input-stream 16) 12)
-          (ash (read-digit input-stream 16) 8)
-          (ash (read-digit input-stream 16) 4)
-          (read-digit input-stream 16)))
+  (logior (ash (read-digit handler input-stream 16) 12)
+          (ash (read-digit handler input-stream 16) 8)
+          (ash (read-digit handler input-stream 16) 4)
+          (read-digit handler input-stream 16)))
 
 
-(defun read-json-escape (input-stream)
+(defun read-json-escape (handler input-stream)
   (declare (type stream input-stream))
   (let ((ch (read-char input-stream nil :eof)))
     (case ch
       (:eof
-        (error 'shasht-parse-error :message (format nil "Expected the next character an escape but encountered end of file first.")))
+        (json-error handler "Expected the next character an escape but encountered end of file first."))
       (#\b
         #\backspace)
       (#\f
@@ -135,140 +211,84 @@
       (#\\
         #\\)
       (#\u
-        (let ((ech (read-encoded-char input-stream)))
+        (let ((ech (read-encoded-char handler input-stream)))
           (code-char
             (if (high-surrogate-p ech)
               (progn
-                (read-json-char input-stream #\\)
-                (read-json-char input-stream #\u)
+                (read-json-char handler input-stream #\\)
+                (read-json-char handler input-stream #\u)
                 (+ #x10000
-                   (- (read-encoded-char input-stream) #xdc00)
+                   (- (read-encoded-char handler input-stream) #xdc00)
                    (* #x400 (- ech #xd800))))
               ech))))
       (otherwise
-        (error 'shasht-parse-error :message (format nil "Unknown escape sequence \\~A found." ch))))))
+        (json-error handler "Unknown escape sequence \\~A found." ch)))))
 
 
-(defun read-json-string (input-stream)
-  (declare (type stream input-stream))
-  (read-json-char input-stream #\" t)
-  (do ((ch (read-char input-stream nil) (read-char input-stream nil))
-       (result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character)))
-      ((equal ch #\") result)
+(defun read-json-string-into-handler (handler input-stream &optional key)
+  (prog (ch (result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character)))
+    (read-json-char handler input-stream #\" t)
+   read-next
+    (setq ch (read-char input-stream nil))
     (cond
       ((null ch)
-        (error 'shasht-parse-error :message (format nil "Unexpected end of file in string.")))
+        (json-error handler "Unexpected end of file in string."))
+      ((char= ch #\\)
+        (vector-push-extend (read-json-escape handler input-stream) result)
+        (go read-next))
+      ((and key (char= #\" ch))
+        (json-key handler result))
+      ((char= #\" ch)
+        (json-value handler result))
       ((control-char-p ch)
-        (error 'shasht-parse-error :message (format nil "Control character found in string.")))
+        (json-error handler "Control character found in string."))
       (t
-        (vector-push-extend (if (char= ch #\\)
-                              (read-json-escape input-stream)
-                              ch)
-                            result)))))
+        (vector-push-extend ch result)
+        (go read-next)))))
 
 
-(defmacro read-json-object-with-handlers (initial extend clone)
-  (alexandria:with-gensyms (result-var key-var)
-    `(prog ((,result-var ,initial) ,key-var)
-       (read-json-char *standard-input* #\{ t)
-       (when (read-json-char* *standard-input* #\} t)
-         (return (,clone ,result-var)))
-      read-key-value
-       (setq ,key-var (read-json-string *standard-input*))
-       (read-json-char *standard-input* #\: t)
-       (,extend ,key-var (read-json *standard-input*) ,result-var)
-       (when (read-json-char* *standard-input* #\, t)
-         (go read-key-value))
-       (read-json-char *standard-input* #\} t)
-       (return (,clone ,result-var)))))
+(defun read-json-object-into-handler (handler input-stream)
+  (read-json-char handler input-stream #\{ t)
+  (json-object-begin handler)
+  (if (read-json-char* handler input-stream #\} t)
+    (json-object-end handler)
+    (tagbody
+     read-key-value
+      (read-json-string-into-handler handler input-stream t)
+      (read-json-char handler input-stream #\: t)
+      (read-json-into-handler handler input-stream)
+      (when (read-json-char* handler input-stream #\, t)
+        (go read-key-value))
+      (read-json-char handler input-stream #\} t)
+      (json-object-end handler))))
 
 
-(defmacro alist-push (key value alist)
-  `(setf ,alist (acons ,key ,value ,alist)))
+(defun read-json-array-into-handler (handler input-stream)
+  (read-json-char handler input-stream #\[ t)
+  (json-array-begin handler)
+  (if (read-json-char* handler input-stream #\] t)
+    (json-array-end handler)
+    (tagbody
+     read-item
+      (read-json-into-handler handler input-stream)
+      (when (read-json-char* handler input-stream #\, t)
+        (go read-item))
+      (read-json-char handler input-stream #\] t)
+      (json-array-end handler))))
 
 
-(defun hash-table-extend (key value hash-table)
-  (setf (gethash key hash-table) value))
-
-
-(defun read-json-object (input-stream)
-  (let ((*standard-input* (or input-stream *standard-input*)))
-    (ecase *read-default-object-format*
-      (:hash-table
-        (read-json-object-with-handlers (make-hash-table :test #'equal) hash-table-extend identity))
-      (:alist
-        (read-json-object-with-handlers nil alist-push nreverse))
-      (otherwise
-        (error 'shasht-parse-error :message (format nil "Unknown array format specified in *read-default-object-format* of ~A." *read-default-object-format*))))))
-
-
-; (defun read-json-object (input-stream)
-;   (read-json-char input-stream #\{ t)
-;   (prog ((result (make-hash-table :test #'equal))
-;          key)
-;     (when (read-json-char* input-stream #\} t)
-;       (return result))
-;    read-key-value
-;     (setf key (read-json-string input-stream))
-;     (read-json-char input-stream #\: t)
-;     (setf (gethash key result) (read-json input-stream))
-;     (when (read-json-char* input-stream #\, t)
-;       (go read-key-value))
-;     (read-json-char input-stream #\} t)
-;     (return result)))
-
-()
-
-
-(defmacro read-json-array-with-handlers (initial extend clone)
-  (alexandria:with-gensyms (result-var)
-    `(prog ((,result-var ,initial))
-       (read-json-char *standard-input* #\[ t)
-       (when (read-json-char* *standard-input* #\] t)
-         (return (,clone ,result-var)))
-      read-item
-       (,extend (read-json *standard-input*) ,result-var)
-       (when (read-json-char* *standard-input* #\, t)
-         (go read-item))
-       (read-json-char *standard-input* #\] t)
-       (return (,clone ,result-var)))))
-
-
-(defun read-json-array (input-stream)
-  (let ((*standard-input* (or input-stream *standard-input*)))
-    (case *read-default-array-format*
-      (:list
-        (read-json-array-with-handlers nil push nreverse))
-      (:vector
-        (read-json-array-with-handlers (make-array 32 :adjustable t :fill-pointer 0) vector-push-extend identity))
-      (otherwise
-        (error 'shasht-parse-error :message (format nil "Unknown array format specified in *read-default-array-format* of ~A." *read-default-array-format*))))))
-
-; (defun read-json-array (input-stream)
-;   (read-json-char input-stream #\[)
-;   (prog ((result (make-array 32 :adjustable t :fill-pointer 0)))
-;     (when (read-json-char* input-stream #\])
-;       (return result))
-;    read-item
-;     (vector-push-extend (read-json input-stream) result)
-;     (when (read-json-char* input-stream #\,)
-;       (go read-item))
-;     (read-json-char input-stream #\])
-;     (return result)))
-
-
-(defun read-json-fraction (input-stream value)
+(defun read-json-fraction (handler input-stream value)
   (do ((exponent -1 (1- exponent))
        (result value)
-       (weight (read-digit input-stream) (read-digit* input-stream)))
+       (weight (read-digit handler input-stream) (read-digit* handler input-stream)))
       ((not weight) result)
     (setq result (+ result (* (expt (coerce 10 *read-default-float-format*) exponent) weight)))))
 
 
-(defun read-json-integer (input-stream)
-  (do* ((negative (read-json-char* input-stream #\-))
+(defun read-json-integer (handler input-stream)
+  (do* ((negative (read-json-char* handler input-stream #\-))
         (result 0)
-        (weight (read-digit input-stream) (read-digit* input-stream)))
+        (weight (read-digit handler input-stream) (read-digit* handler input-stream)))
        ((not weight)
          (if negative
            (- result)
@@ -278,12 +298,12 @@
     (setq result (+ (* 10 result) weight))))
 
 
-(defun read-json-exponent (input-stream)
-  (do* ((negative (if (read-json-char* input-stream #\+)
+(defun read-json-exponent (handler input-stream)
+  (do* ((negative (if (read-json-char* handler input-stream #\+)
                     nil
-                    (read-json-char* input-stream #\-)))
+                    (read-json-char* handler input-stream #\-)))
         (result 0)
-        (weight (read-digit input-stream) (read-digit* input-stream)))
+        (weight (read-digit handler input-stream) (read-digit* handler input-stream)))
        ((not weight)
          (if negative
            (- result)
@@ -291,45 +311,49 @@
     (setq result (+ (* 10 result) weight))))
 
 
-(defun read-json-number (input-stream)
-  (let ((value (read-json-integer input-stream)))
-    (when (read-json-char* input-stream #\.)
-      (setq value (read-json-fraction input-stream value)))
-    (when (read-json-char* input-stream #\e nil nil)
-      (setq value (* value (expt (coerce 10 *read-default-float-format*) (read-json-exponent input-stream)))))
-    value))
+(defun read-json-number-into-handler (handler input-stream)
+  (let ((value (read-json-integer handler input-stream)))
+    (when (read-json-char* handler input-stream #\.)
+      (setq value (read-json-fraction handler input-stream value)))
+    (when (read-json-char* handler input-stream #\e nil nil)
+      (setq value (* value (expt (coerce 10 *read-default-float-format*) (read-json-exponent handler input-stream)))))
+    (json-value handler value)))
+
+
+(defun read-json-into-handler (handler input-stream)
+  (skip-whitespace input-stream)
+  (let ((ch (peek-char nil input-stream nil :eof)))
+    (case ch
+      (#\{
+        (read-json-object-into-handler handler input-stream))
+      (#\[
+        (read-json-array-into-handler handler input-stream))
+      (#\"
+        (read-json-string-into-handler handler input-stream))
+      ((#\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+        (read-json-number-into-handler handler input-stream))
+      (#\t
+        (read-json-token-into-handler handler input-stream "true" :true))
+      (#\f
+        (read-json-token-into-handler handler input-stream "false" :false))
+      (#\n
+        (read-json-token-into-handler handler input-stream "null" :null))
+      (:eof
+        (json-eof handler))
+      (otherwise
+        (json-error handler "Unexpected character ~A found." ch)))))
 
 
 (defun read-json (&optional (input-stream *standard-input*) (eof-error-p t) eof-value single-value-p)
-  (prog2
-    (skip-whitespace input-stream)
-    (let ((ch (peek-char nil input-stream nil :eof)))
-      (case ch
-        (#\{
-          (read-json-object input-stream))
-        (#\[
-          (read-json-array input-stream))
-        (#\"
-          (read-json-string input-stream))
-        ((#\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
-          (read-json-number input-stream))
-        (#\t
-          (read-json-token input-stream "true" *read-default-true-value*))
-        (#\f
-          (read-json-token input-stream "false" *read-default-false-value*))
-        (#\n
-          (read-json-token input-stream "null" *read-default-null-value*))
-        (:eof
-          (when eof-error-p
-            (error 'end-of-file :stream input-stream))
-          eof-value)
-        (otherwise
-          (error 'shasht-parse-error :message (format nil "Unexpected character ~A found." ch)))))
+  (let ((handler (make-instance 'reader-state
+                   :eof-error-p eof-error-p :eof-value eof-value :input-stream input-stream)))
+    (read-json-into-handler handler input-stream)
     (when single-value-p
       (skip-whitespace input-stream)
       (let ((ch (peek-char nil input-stream nil)))
         (when ch
-          (error 'shasht-parse-error :message (format nil "Unexpected character ~A found at end of file." ch)))))))
+          (json-error handler "Unexpected character ~A found at end of file." ch))))
+    (json-expression-value (first (expression-stack handler)))))
 
 
 (defun from-json (value)

@@ -2,6 +2,8 @@
 
 (defvar *comma-needed* nil)
 
+
+
 (defgeneric write-json (object &optional output-stream))
 
 
