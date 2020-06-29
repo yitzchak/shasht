@@ -1,17 +1,5 @@
 (in-package :shasht)
 
-(defvar *comma-needed* nil)
-
-
-
-(defgeneric write-json (object &optional output-stream))
-
-
-(defun to-json (object)
-  (with-output-to-string (output-stream)
-    (write-json object output-stream)))
-
-
 (defun ascii-printable-p (char-code)
   (<= 32 char-code 126))
 
@@ -20,137 +8,177 @@
   (<= #x10000 char-code #x10ffff))
 
 
-(defun write-object-key-value (key value)
-  (if *comma-needed*
-    (write-char #\,)
-    (setq *comma-needed* t))
-  (write-json key)
-  (write-char #\:)
-  (write-json value))
+(defstruct writer-state
+  (delimiter nil)
+  (indent 0))
 
 
-(defmacro write-object (output-stream &body body)
-  `(let ((*standard-output* (or ,output-stream *standard-output*))
-         (*comma-needed* nil))
-     (write-char #\{)
-     ,@body
-     (write-char #\})))
-
-(defmacro with-object (output-stream &body specs)
-  `(write-object ,output-stream
-     ,@(mapcar (lambda (spec)
-                 `(write-object-key-value ,(first spec) (progn ,@(rest spec))))
-               specs)))
-
-(defun write-array-element (element)
-  (if *comma-needed*
-    (write-char #\,)
-    (setq *comma-needed* t))
-  (write-json element))
+(defclass writer ()
+  ((states
+     :accessor states
+     :initform nil)
+   (output-stream
+     :accessor output-stream
+     :initarg :output-stream)))
 
 
-(defmacro write-array (output-stream &body body)
-  `(let ((*standard-output* (or ,output-stream *standard-output*))
-         (*comma-needed* nil))
-     (write-char #\[)
-     ,@body
-     (write-char #\])))
+(defmethod json-array-begin ((instance writer))
+  (with-slots (states output-stream)
+              instance
+    (write-char #\[ output-stream)
+    (push (make-writer-state :indent (if states
+                                       (1+ (writer-state-indent (first states)))
+                                       0))
+          states)))
 
 
-(defmethod write-json ((object hash-table) &optional output-stream)
-  (write-object output-stream
-    (maphash (lambda (key val)
-               (write-object-key-value key val))
-             object)))
+(defmethod json-array-end ((instance writer))
+  (write-char #\] (output-stream instance))
+  (pop (states instance)))
 
 
-(defun write-json-alist (alist &optional output-stream)
-  (write-object output-stream
-    (dolist (pair alist)
-      (write-object-key-value (car pair) (cdr pair)))))
+(defmethod json-object-begin ((instance writer))
+  (with-slots (states output-stream)
+              instance
+    (write-char #\{ output-stream)
+    (push (make-writer-state :indent (if states
+                                       (1+ (writer-state-indent (first states)))
+                                       0))
+          states)))
 
 
-(defun write-json-plist (plist &optional output-stream)
-  (write-object output-stream
-    (alexandria:doplist (key value plist)
-      (write-object-key-value key value))))
+(defmethod json-object-end ((instance writer))
+  (write-char #\} (output-stream instance))
+  (pop (states instance)))
 
 
-(defmethod write-json ((object string) &optional output-stream)
-  (write-char #\" output-stream)
-  (do ((index 0 (1+ index)))
-      ((>= index (length object)))
-    (let* ((ch (char object index))
-           (code (char-code ch)))
-      (cond
-        ((char= ch #\newline)
-          (write-string "\\n" output-stream))
-        ((char= ch #\return)
-          (write-string "\\r" output-stream))
-        ((char= ch #\tab)
-          (write-string "\\t" output-stream))
-        ((char= ch #\page)
-          (write-string "\\f" output-stream))
-        ((char= ch #\backspace)
-          (write-string "\\b" output-stream))
-        ((char= ch #\")
-          (write-string "\\\"" output-stream))
-        ((char= ch #\\)
-          (write-string "\\\\" output-stream))
-        ((not (graphic-char-p ch))
-          (format output-stream "\\u~4,'0x" code))
-        ((or (not *write-ascii-encoding*)
-             (ascii-printable-p code))
-          (write-char ch output-stream))
-        ((supplementary-plane-p code)
-          (format output-stream "\\u~4,'0x\\u~4,'0x"
-                  (+ (ash (- code #x10000) -10)
-                     #xd800)
-                  (+ (logand (- code #x10000)
-                             (- (ash 1 10) 1))
-                     #xdc00)))
-        (t
-          (format output-stream "\\u~4,'0x" code)))))
-  (write-char #\" output-stream)
-  (values))
-  
-
-(defmethod write-json ((object number) &optional output-stream)
-  (format (or output-stream t) "~,,,,,,'eE" object))
+(defmethod json-key ((instance writer) key)
+  (json-value instance key)
+  (setf (writer-state-delimiter (first (states instance))) #\:))
 
 
-(defmethod write-json ((object integer) &optional output-stream)
-  (prin1 object output-stream))
+(defmethod json-value :before ((instance writer) value)
+  (declare (ignore value))
+  (let ((state (first (states instance))))
+    (when state
+      (when (writer-state-delimiter state)
+        (write-char (writer-state-delimiter state) (output-stream instance)))
+      (setf (writer-state-delimiter state) #\,))))
 
 
-(defmethod write-json ((object symbol) &optional output-stream)
-  (cond
-    ((member object *write-true-values* :test #'eql)
-      (write-string "true" output-stream))
-    ((member object *write-false-values* :test #'eql)
-      (write-string "false" output-stream))
-    ((member object *write-null-values* :test #'eql)
-      (write-string "null" output-stream))
-    (t
-      (write-json (symbol-name object) output-stream))))
+(defmethod json-value ((instance writer) (value string))
+  (with-slots (output-stream)
+              instance
+    (write-char #\" output-stream)
+    (do ((index 0 (1+ index)))
+        ((>= index (length value)))
+      (let* ((ch (char value index))
+             (code (char-code ch)))
+        (cond
+          ((char= ch #\newline)
+            (write-string "\\n" output-stream))
+          ((char= ch #\return)
+            (write-string "\\r" output-stream))
+          ((char= ch #\tab)
+            (write-string "\\t" output-stream))
+          ((char= ch #\page)
+            (write-string "\\f" output-stream))
+          ((char= ch #\backspace)
+            (write-string "\\b" output-stream))
+          ((char= ch #\")
+            (write-string "\\\"" output-stream))
+          ((char= ch #\\)
+            (write-string "\\\\" output-stream))
+          ((not (graphic-char-p ch))
+            (format output-stream "\\u~4,'0x" code))
+          ((or (not *write-ascii-encoding*)
+               (ascii-printable-p code))
+            (write-char ch output-stream))
+          ((supplementary-plane-p code)
+            (format output-stream "\\u~4,'0x\\u~4,'0x"
+                    (+ (ash (- code #x10000) -10)
+                       #xd800)
+                    (+ (logand (- code #x10000)
+                               (- (ash 1 10) 1))
+                       #xdc00)))
+          (t
+            (format output-stream "\\u~4,'0x" code)))))
+    (write-char #\" output-stream)))
 
 
-(defmethod write-json ((object list) &optional output-stream)
+(defmethod json-value ((instance writer) (value hash-table))
+  (json-object-begin instance)
+  (maphash (lambda (key val)
+             (json-key instance key)
+             (json-value instance val))
+           value)
+  (json-object-end instance))
+
+
+(defmethod json-value ((instance writer) (value list))
   (cond
     ((and *write-alist-as-object*
-          (alistp object))
-      (write-json-alist object output-stream))
+          (alistp value))
+      (json-object-begin instance)
+      (dolist (pair value)
+        (json-key instance (car pair))
+        (json-value instance (cdr pair)))
+      (json-object-end instance))
     ((and *write-plist-as-object*
-          (plistp object))
-      (write-json-plist object output-stream))
+          (plistp value))
+      (json-object-begin instance)
+      (alexandria:doplist (k v value)
+        (json-key instance k)
+        (json-value instance v))
+      (json-object-end instance))
     (t
-      (write-array output-stream
-        (dolist (element object)
-          (write-array-element element))))))
+      (json-array-begin instance)
+      (dolist (element value)
+        (json-value instance element))
+      (json-array-end instance))))
 
 
-(defmethod write-json ((object vector) &optional output-stream)
-  (write-array output-stream
-    (dotimes (index (length object))
-      (write-array-element (elt object index)))))
+(defmethod json-value ((instance writer) (value vector))
+  (json-array-begin instance)
+  (dotimes (index (length value))
+    (json-value instance (elt value index)))
+  (json-array-end instance))
+
+
+(defmethod json-value ((instance writer) (value integer))
+  (prin1 value (output-stream instance)))
+
+
+(defmethod json-value ((instance writer) (value number))
+  (format (output-stream instance) "~,,,,,,'eE" value))
+
+
+(defmethod json-value ((instance writer) (value symbol))
+  (cond
+    ((member value *write-true-values* :test #'eql)
+      (write-string "true" (output-stream instance)))
+    ((member value *write-false-values* :test #'eql)
+      (write-string "false" (output-stream instance)))
+    ((member value *write-null-values* :test #'eql)
+      (write-string "null" (output-stream instance)))
+    (t
+      (json-value instance (symbol-name value)))))
+
+
+(defmethod json-eof ((instance writer)))
+
+
+(defmethod json-error ((instance writer) control &rest args))
+
+
+(defun write-json (object &optional output-stream)
+  (json-value (make-instance 'writer :output-stream (or output-stream *standard-output*))
+              object)
+  object)
+
+
+(defun to-json (object)
+  (with-output-to-string (output-stream)
+    (write-json object output-stream)))
+
 
