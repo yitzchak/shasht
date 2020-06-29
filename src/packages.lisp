@@ -5,5 +5,6 @@
     #:read-json
     #:with-object
     #:to-json
-    #:write-json))
+    #:write-json
+    #:pprint-json))
 
