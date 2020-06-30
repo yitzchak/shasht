@@ -21,18 +21,14 @@
      :initform nil)
    (output-stream
      :accessor output-stream
-     :initarg :output-stream)
-   (pretty
-     :accessor pretty
-     :initarg :pretty
-     :initform nil)))
+     :initarg :output-stream)))
 
 
 (defun write-separator (instance)
   (let ((state (first (states instance))))
     (when state
       (write-string (writer-state-delimiter state) (output-stream instance))
-      (if (pretty instance)
+      (if *print-pretty*
         (setf (writer-state-delimiter state)
               (concatenate 'string "," (string #\newline) (make-string (* 2 (1+ (writer-state-indent state))) :initial-element #\space))
               (writer-state-terminator state)
@@ -43,13 +39,13 @@
 
 (defmethod json-array-begin ((instance writer))
   (write-separator instance)
-  (with-slots (states output-stream pretty)
+  (with-slots (states output-stream)
               instance
     (let ((indent (if states
                      (1+ (writer-state-indent (first states)))
                      0)))
       (write-char #\[ output-stream)
-      (push (make-writer-state :delimiter (if pretty
+      (push (make-writer-state :delimiter (if *print-pretty*
                                             (concatenate 'string (string #\newline) (make-string (* 2 (1+ indent)) :initial-element #\space))
                                             "")
                                :terminator ""
@@ -64,13 +60,13 @@
 
 (defmethod json-object-begin ((instance writer))
   (write-separator instance)
-  (with-slots (states output-stream pretty)
+  (with-slots (states output-stream)
               instance
     (let ((indent (if states
                     (1+ (writer-state-indent (first states)))
                     0)))
       (write-char #\{ output-stream)
-      (push (make-writer-state :delimiter (if pretty
+      (push (make-writer-state :delimiter (if *print-pretty*
                                             (concatenate 'string (string #\newline) (make-string (* 2 (1+ indent)) :initial-element #\space))
                                             "")
                                :terminator ""
@@ -86,7 +82,7 @@
 (defmethod json-key ((instance writer) key)
   (json-value instance key)
   (setf (writer-state-delimiter (first (states instance)))
-        (if (pretty instance)
+        (if *print-pretty*
             ": "
             ":")))
 
@@ -209,9 +205,10 @@
 
 
 (defun pprint-json (object &optional output-stream)
-  (json-value (make-instance 'writer :output-stream (or output-stream *standard-output*) :pretty t)
-              object)
-  object)
+  (let ((*print-pretty* t))
+    (json-value (make-instance 'writer :output-stream (or output-stream *standard-output*))
+                object)
+    object))
 
 
 (defun to-json (object)
