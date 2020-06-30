@@ -126,7 +126,8 @@
 (defun read-json-char* (handler input-stream value &optional skip-whitespace (case-sensitive t))
   (declare (type stream input-stream)
            (type character value)
-           (type boolean skip-whitespace case-sensitive))
+           (type boolean skip-whitespace case-sensitive)
+           (ignore handler))
   (when skip-whitespace
     (skip-whitespace input-stream))
   (let ((ch (peek-char nil input-stream nil)))
@@ -148,7 +149,8 @@
 
 (defun read-digit* (handler input-stream &optional (radix 10))
   (declare (type stream input-stream)
-           (type fixnum radix))
+           (type fixnum radix)
+           (ignore handler))
   (let* ((ch (peek-char nil input-stream nil))
          (weight (when ch
                    (digit-char-p ch radix))))
@@ -247,36 +249,6 @@
         (go read-next)))))
 
 
-(defun read-json-object-into-handler (handler input-stream)
-  (read-json-char handler input-stream #\{ t)
-  (json-object-begin handler)
-  (if (read-json-char* handler input-stream #\} t)
-    (json-object-end handler)
-    (tagbody
-     read-key-value
-      (read-json-string-into-handler handler input-stream t)
-      (read-json-char handler input-stream #\: t)
-      (read-json-into-handler handler input-stream)
-      (when (read-json-char* handler input-stream #\, t)
-        (go read-key-value))
-      (read-json-char handler input-stream #\} t)
-      (json-object-end handler))))
-
-
-(defun read-json-array-into-handler (handler input-stream)
-  (read-json-char handler input-stream #\[ t)
-  (json-array-begin handler)
-  (if (read-json-char* handler input-stream #\] t)
-    (json-array-end handler)
-    (tagbody
-     read-item
-      (read-json-into-handler handler input-stream)
-      (when (read-json-char* handler input-stream #\, t)
-        (go read-item))
-      (read-json-char handler input-stream #\] t)
-      (json-array-end handler))))
-
-
 (defun read-json-fraction (handler input-stream value)
   (do ((exponent -1 (1- exponent))
        (result value)
@@ -320,28 +292,71 @@
     (json-value handler value)))
 
 
+(defstruct parser-state
+  object
+  key)
+
+
 (defun read-json-into-handler (handler input-stream)
-  (skip-whitespace input-stream)
-  (let ((ch (peek-char nil input-stream nil :eof)))
-    (case ch
-      (#\{
-        (read-json-object-into-handler handler input-stream))
-      (#\[
-        (read-json-array-into-handler handler input-stream))
-      (#\"
-        (read-json-string-into-handler handler input-stream))
-      ((#\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
-        (read-json-number-into-handler handler input-stream))
-      (#\t
-        (read-json-token-into-handler handler input-stream "true" :true))
-      (#\f
-        (read-json-token-into-handler handler input-stream "false" :false))
-      (#\n
-        (read-json-token-into-handler handler input-stream "null" :null))
-      (:eof
+  (prog (ch objects-p)
+   read-next
+    ; If we are in an object then read the key first.
+    (when (first objects-p)
+      (read-json-string-into-handler handler input-stream t)
+      (read-json-char handler input-stream #\: t))
+
+    (skip-whitespace input-stream)
+    (setq ch (peek-char nil input-stream nil))
+
+    (cond
+      ((null ch)
         (json-eof handler))
-      (otherwise
-        (json-error handler "Unexpected character ~A found." ch)))))
+      ((char= #\{ ch)
+        (read-char input-stream)
+        (json-object-begin handler)
+        (cond
+          ((read-json-char* handler input-stream #\})
+            (json-object-end handler))
+          (t
+            (push t objects-p)
+            (go read-next))))
+      ((char= #\[ ch)
+        (read-char input-stream)
+        (json-array-begin handler)
+        (cond
+          ((read-json-char* handler input-stream #\])
+            (json-array-end handler))
+          (t
+            (push nil objects-p)
+            (go read-next))))
+      ((char= #\" ch)
+        (read-json-string-into-handler handler input-stream))
+      ((position ch "-0123456789")
+        (read-json-number-into-handler handler input-stream))
+      ((char= #\t ch)
+        (read-json-token-into-handler handler input-stream "true" :true))
+      ((char= #\f ch)
+        (read-json-token-into-handler handler input-stream "false" :false))
+      ((char= #\n ch)
+        (read-json-token-into-handler handler input-stream "null" :null))
+      (t
+        (json-error handler "Unexpected character ~A found." ch)))
+
+   read-separator
+    (cond
+      ((null objects-p)) ; We aren't in an object or an array so exit.
+      ((read-json-char* handler input-stream #\, t) ; If there is a comma then there is another value or key/value.
+        (go read-next))
+      ((first objects-p) ; We are at the end of an object so finish it and look for more separators.
+        (read-json-char handler input-stream #\} t)
+        (json-object-end handler)
+        (pop objects-p)
+        (go read-separator))
+      (t ; We are at the end of an array so finish it and look for more separators.
+        (read-json-char handler input-stream #\] t)
+        (json-array-end handler)
+        (pop objects-p)
+        (go read-separator)))))
 
 
 (defun read-json (&optional (input-stream *standard-input*) (eof-error-p t) eof-value single-value-p)

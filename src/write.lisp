@@ -28,19 +28,32 @@
      :initform nil)))
 
 
+(defun write-separator (instance)
+  (let ((state (first (states instance))))
+    (when state
+      (write-string (writer-state-delimiter state) (output-stream instance))
+      (if (pretty instance)
+        (setf (writer-state-delimiter state)
+              (concatenate 'string "," (string #\newline) (make-string (* 2 (1+ (writer-state-indent state))) :initial-element #\space))
+              (writer-state-terminator state)
+              (concatenate 'string (string #\newline) (make-string (* 2 (writer-state-indent state)) :initial-element #\space)))
+        (setf (writer-state-delimiter state) ","
+              (writer-state-terminator state) "")))))
+
+
 (defmethod json-array-begin ((instance writer))
+  (write-separator instance)
   (with-slots (states output-stream pretty)
               instance
-    (let* ((indent (if states
-                     (writer-state-indent (first states))
-                     0))
-           (sub-indent (1+ indent)))
+    (let ((indent (if states
+                     (1+ (writer-state-indent (first states)))
+                     0)))
       (write-char #\[ output-stream)
       (push (make-writer-state :delimiter (if pretty
-                                            (concatenate 'string (string #\newline) (make-string (* 2 sub-indent) :initial-element #\space))
+                                            (concatenate 'string (string #\newline) (make-string (* 2 (1+ indent)) :initial-element #\space))
                                             "")
                                :terminator ""
-                               :indent sub-indent)
+                               :indent indent)
             states))))
 
 
@@ -50,10 +63,11 @@
 
 
 (defmethod json-object-begin ((instance writer))
+  (write-separator instance)
   (with-slots (states output-stream pretty)
               instance
     (let ((indent (if states
-                    (writer-state-indent (first states))
+                    (1+ (writer-state-indent (first states)))
                     0)))
       (write-char #\{ output-stream)
       (push (make-writer-state :delimiter (if pretty
@@ -79,17 +93,8 @@
 
 (defmethod json-value :before ((instance writer) value)
   (declare (ignore value))
-  (let ((state (first (states instance))))
-    (when state
-      (write-string (writer-state-delimiter state) (output-stream instance))
-      (if (pretty instance)
-        (setf (writer-state-delimiter state)
-              (concatenate 'string "," (string #\newline) (make-string (* 2 (1+ (writer-state-indent state))) :initial-element #\space))
-              (writer-state-terminator state)
-              (concatenate 'string (string #\newline) (make-string (* 2 (writer-state-indent state)) :initial-element #\space)))
-        (setf (writer-state-delimiter state) ","
-              (writer-state-terminator state) "")))))
-
+  (write-separator instance))
+  
 
 (defmethod json-value ((instance writer) (value string))
   (with-slots (output-stream)
@@ -193,7 +198,8 @@
 (defmethod json-eof ((instance writer)))
 
 
-(defmethod json-error ((instance writer) control &rest args))
+(defmethod json-error ((instance writer) control &rest args)
+  (declare (ignore instance control args)))
 
 
 (defun write-json (object &optional output-stream)
