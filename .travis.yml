@@ -20,15 +20,16 @@ env:
 
 jobs:
   allow_failures:
-    - env: METHOD=ros LISP=cmu-bin
+    - env: LISP=cmu-bin
   exclude:
     - os: osx
-      env: METHOD=ros LISP=cmu-bin
+      env: LISP=cmu-bin
 
 install:
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
   - ros config
+  - ros install yitzchak/parachute#fix-roswell-script
   - ros install ./shasht.asd
 
 script:
-  - ros --eval "(ql:quickload :shasht/test)" --eval "(asdf:test-system :shasht)" --quit
+  - run-parachute -l SHASHT/TEST SHASHT/TEST
