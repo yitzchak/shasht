@@ -14,11 +14,11 @@
                           (case (char name 0)
                             (#\y
                               (list `(define-test ,(format nil "Will parse ~A" name)
-                                                  :time-limit 1
+                                                  :time-limit 10
                                                   (finish (read-json ,name)))))
                             (#\n
                               (list `(define-test ,(format nil "Will not parse ~A" name)
-                                                  :time-limit 1
+                                                  :time-limit 10
                                                   (fail (read-json ,name)))))))))
                     (asdf:component-children (asdf:find-component :shasht/test '("src" "test" "fixtures"))))))
 
