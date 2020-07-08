@@ -38,7 +38,6 @@
 
 
 (defmethod json-array-begin ((instance writer))
-  (write-separator instance)
   (with-slots (states output-stream)
               instance
     (let ((indent (if states
@@ -59,7 +58,6 @@
 
 
 (defmethod json-object-begin ((instance writer))
-  (write-separator instance)
   (with-slots (states output-stream)
               instance
     (let ((indent (if states
@@ -192,10 +190,6 @@
 
 
 (defmethod json-eof ((instance writer)))
-
-
-(defmethod json-error ((instance writer) control &rest args)
-  (declare (ignore instance control args)))
 
 
 (defun write-json (object &optional output-stream)

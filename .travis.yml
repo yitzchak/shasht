@@ -1,0 +1,34 @@
+dist: xenial
+language: c
+
+branches:
+  only:
+    - master
+
+os:
+  - linux
+  - osx
+
+env:
+  global:
+    - PATH=~/.roswell/bin:$PATH
+    - ROSWELL_INSTALL_DIR=$HOME/.roswell
+  jobs:
+    - LISP=ccl-bin
+    - LISP=cmu-bin
+    - LISP=sbcl-bin
+
+jobs:
+  allow_failures:
+    - env: METHOD=ros LISP=cmu-bin
+  exclude:
+    - os: osx
+      env: METHOD=ros LISP=cmu-bin
+
+install:
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
+  - ros config
+  - ros install ./shasht.asd
+
+script:
+  - ros --eval "(ql:quickload :shasht/test)" --eval "(asdf:test-system :shasht)" --quit

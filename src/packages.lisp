@@ -1,10 +1,16 @@
 (defpackage #:shasht
-  (:use #:common-lisp #:alexandria)
+  (:use #:common-lisp)
   (:export
     #:from-json
+    #:json-array-begin
+    #:json-array-end
+    #:json-key
+    #:json-object-begin
+    #:json-object-end
+    #:json-value
+    #:pprint-json
     #:read-json
-    #:with-object
     #:to-json
-    #:write-json
-    #:pprint-json))
+    #:with-object
+    #:write-json))
 
