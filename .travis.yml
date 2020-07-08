@@ -1,10 +1,6 @@
 dist: xenial
 language: c
 
-branches:
-  only:
-    - master
-
 os:
   - linux
   - osx
