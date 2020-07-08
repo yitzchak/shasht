@@ -30,15 +30,3 @@
   (:method ((instance (eql nil)) value)
     (declare (ignore instance value))))
 
-
-(defgeneric json-eof (instance)
-  (:method ((instance (eql nil)))
-    (declare (ignore instance))))
-
-
-(defgeneric json-error (instance control &rest args)
-  (:method ((instance (eql nil)) control &rest args)
-    (declare (ignore instance control args))))
-
-
-

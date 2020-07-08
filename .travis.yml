@@ -1,0 +1,33 @@
+dist: xenial
+language: c
+
+branches:
+  only:
+    - master
+
+os:
+  - linux
+  - osx
+
+env:
+  global:
+    - PATH=~/.roswell/bin:$PATH
+    - ROSWELL_INSTALL_DIR=$HOME/.roswell
+  jobs:
+    - LISP=ccl-bin
+    - LISP=cmu-bin
+    - LISP=sbcl-bin
+
+jobs:
+  exclude:
+    - os: osx
+      env: LISP=cmu-bin
+
+install:
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
+  - ros config
+  - ros install Shinmera/parachute
+  - ros install ./shasht.asd
+
+script:
+  - run-parachute -l SHASHT/TEST SHASHT/TEST
