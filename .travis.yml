@@ -19,8 +19,6 @@ env:
     - LISP=sbcl-bin
 
 jobs:
-  allow_failures:
-    - env: LISP=cmu-bin
   exclude:
     - os: osx
       env: LISP=cmu-bin
@@ -28,7 +26,7 @@ jobs:
 install:
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
   - ros config
-  - ros install yitzchak/parachute#fix-roswell-script
+  - ros install yitzchak/parachute/fix-roswell-script
   - ros install ./shasht.asd
 
 script:
