@@ -171,58 +171,72 @@
           (read-digit input-stream t)))
 
 
-(defun read-json-escape (input-stream)
-  (declare (type stream input-stream))
-  (let ((ch (read-char input-stream nil)))
-    (case ch
-      (#\b
-        #\backspace)
-      (#\f
-        #\page)
-      (#\n
-        #\newline)
-      (#\r
-        #\return)
-      (#\t
-        #\tab)
-      (#\"
-        #\")
-      (#\/
-        #\/)
-      (#\\
-        #\\)
-      (#\u
-        (let ((ech (read-encoded-char input-stream)))
-          (code-char
-            (if (high-surrogate-p ech)
-              (progn
-                (expect-char input-stream #\\)
-                (expect-char input-stream #\u)
-                (+ #x10000
-                   (- (read-encoded-char input-stream) #xdc00)
-                   (* #x400 (- ech #xd800))))
-              ech))))
-      (otherwise
-        (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))))
-
-
 (defun read-json-string (input-stream)
   (declare (optimize (speed 3) (safety 0))
            (type stream input-stream))
   (skip-whitespace input-stream)
   (expect-char input-stream #\")
-  (do ((result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character))
-       (ch (read-char input-stream nil) (read-char input-stream nil)))
-      ((equal #\" ch) result)
-    (declare (type (or null character) ch)
-             (type string result))
-    (when (or (null ch)
-              (control-char-p ch))
-      (error 'shasht-parse-error :char ch))
-    (vector-push-extend (if (char= #\\ ch)
-                          (read-json-escape input-stream)
-                          ch)
-                        result)))
+  (prog ((result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character))
+         ch hi lo)
+   read-next
+    (setq ch (read-char input-stream nil))
+    (cond
+      ((or (null ch)
+           (control-char-p ch))
+        (error 'shasht-parse-error :char ch))
+      ((char= #\" ch)
+        (return result))
+      ((char/= #\\ ch)
+        (vector-push-extend ch result)
+        (go read-next)))
+
+    (setq ch (read-char input-stream nil))
+    (cond
+      ((equal #\b ch)
+        (vector-push-extend #\backspace)
+        (go read-next))
+      ((equal #\f ch)
+        (vector-push-extend #\page)
+        (go read-next))
+      ((equal #\n ch)
+        (vector-push-extend #\newline)
+        (go read-next))
+      ((equal #\r ch)
+        (vector-push-extend #\return)
+        (go read-next))
+      ((equal #\t ch)
+        (vector-push-extend #\tab)
+        (go read-next))
+      ((equal #\" ch)
+        (vector-push-extend #\")
+        (go read-next))
+      ((equal #\/ ch)
+        (vector-push-extend #\/)
+        (go read-next))
+      ((equal #\\ ch)
+        (vector-push-extend #\\)
+        (go read-next))
+      ((not (equal #\u ch))
+        (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
+
+    (setq hi (read-encoded-char input-stream))
+
+    (cond
+      ((high-surrogate-p hi)
+        #+cmucl (vector-push-extend (code-char hi) results) ; CMUCL is UTF-16
+        (expect-char input-stream #\\)
+        (expect-char input-stream #\u)
+        (setq lo (read-encoded-char input-stream))
+        (vector-push-extend
+          (code-char #+cmucl lo
+                     #-cmucl (+ #x10000
+                                (- lo #xdc00)
+                                (* #x400 (- hi #xd800))))
+          results))
+      (t
+        (vector-push-extend (code-char hi) results)))
+
+    (go read-next)))
 
 
 (defun read-json-fraction (input-stream value)
