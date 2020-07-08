@@ -22,7 +22,7 @@ jobs:
 install:
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
   - ros config
-  - ros install yitzchak/parachute/fix-roswell-script
+  - ros install Shinmera/parachute
   - ros install ./shasht.asd
 
 script:
