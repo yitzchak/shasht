@@ -193,28 +193,28 @@
     (setq ch (read-char input-stream nil))
     (cond
       ((equal #\b ch)
-        (vector-push-extend #\backspace)
+        (vector-push-extend #\backspace result)
         (go read-next))
       ((equal #\f ch)
-        (vector-push-extend #\page)
+        (vector-push-extend #\page result)
         (go read-next))
       ((equal #\n ch)
-        (vector-push-extend #\newline)
+        (vector-push-extend #\newline result)
         (go read-next))
       ((equal #\r ch)
-        (vector-push-extend #\return)
+        (vector-push-extend #\return result)
         (go read-next))
       ((equal #\t ch)
-        (vector-push-extend #\tab)
+        (vector-push-extend #\tab result)
         (go read-next))
       ((equal #\" ch)
-        (vector-push-extend #\")
+        (vector-push-extend #\" result)
         (go read-next))
       ((equal #\/ ch)
-        (vector-push-extend #\/)
+        (vector-push-extend #\/ result)
         (go read-next))
       ((equal #\\ ch)
-        (vector-push-extend #\\)
+        (vector-push-extend #\\ result)
         (go read-next))
       ((not (equal #\u ch))
         (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
@@ -223,7 +223,7 @@
 
     (cond
       ((high-surrogate-p hi)
-        #+cmucl (vector-push-extend (code-char hi) results) ; CMUCL is UTF-16
+        #+cmucl (vector-push-extend (code-char hi) result) ; CMUCL is UTF-16
         (expect-char input-stream #\\)
         (expect-char input-stream #\u)
         (setq lo (read-encoded-char input-stream))
@@ -232,9 +232,9 @@
                      #-cmucl (+ #x10000
                                 (- lo #xdc00)
                                 (* #x400 (- hi #xd800))))
-          results))
+          result))
       (t
-        (vector-push-extend (code-char hi) results)))
+        (vector-push-extend (code-char hi) result)))
 
     (go read-next)))
 
