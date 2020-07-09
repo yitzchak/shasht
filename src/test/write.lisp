@@ -265,8 +265,8 @@
 
 
 (define-write-test "Write simple hash table"
-  (alexandria:alist-hash-table '(("fu" . 1) ("bar" . 2) ("wibble" . 3)))
-  "{\"fu\":1,\"bar\":2,\"wibble\":3}")
+  (alexandria:alist-hash-table '(("fu" . 1)))
+  "{\"fu\":1}")
 
 
 (define-write-test "Write simple alist"
