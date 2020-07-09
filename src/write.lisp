@@ -37,6 +37,46 @@
               (writer-state-terminator state) "")))))
 
 
+(defun write-json-string (instance value)
+  (with-slots (output-stream)
+              instance
+    (write-char #\" output-stream)
+    (do ((index 0 (1+ index)))
+        ((>= index (length value)))
+      (let* ((ch (char value index))
+             (code (char-code ch)))
+        (cond
+          ((char= ch #\newline)
+            (write-string "\\n" output-stream))
+          ((char= ch #\return)
+            (write-string "\\r" output-stream))
+          ((char= ch #\tab)
+            (write-string "\\t" output-stream))
+          ((char= ch #\page)
+            (write-string "\\f" output-stream))
+          ((char= ch #\backspace)
+            (write-string "\\b" output-stream))
+          ((char= ch #\")
+            (write-string "\\\"" output-stream))
+          ((char= ch #\\)
+            (write-string "\\\\" output-stream))
+          ((not (graphic-char-p ch))
+            (format output-stream "\\u~4,'0x" code))
+          ((or (not *write-ascii-encoding*)
+               (ascii-printable-p code))
+            (write-char ch output-stream))
+          ((supplementary-plane-p code)
+            (format output-stream "\\u~4,'0x\\u~4,'0x"
+                    (+ (ash (- code #x10000) -10)
+                       #xd800)
+                    (+ (logand (- code #x10000)
+                               (- (ash 1 10) 1))
+                       #xdc00)))
+          (t
+            (format output-stream "\\u~4,'0x" code)))))
+    (write-char #\" output-stream)))
+
+
 (defmethod json-array-begin ((instance writer))
   (with-slots (states output-stream)
               instance
@@ -91,43 +131,7 @@
   
 
 (defmethod json-value ((instance writer) (value string))
-  (with-slots (output-stream)
-              instance
-    (write-char #\" output-stream)
-    (do ((index 0 (1+ index)))
-        ((>= index (length value)))
-      (let* ((ch (char value index))
-             (code (char-code ch)))
-        (cond
-          ((char= ch #\newline)
-            (write-string "\\n" output-stream))
-          ((char= ch #\return)
-            (write-string "\\r" output-stream))
-          ((char= ch #\tab)
-            (write-string "\\t" output-stream))
-          ((char= ch #\page)
-            (write-string "\\f" output-stream))
-          ((char= ch #\backspace)
-            (write-string "\\b" output-stream))
-          ((char= ch #\")
-            (write-string "\\\"" output-stream))
-          ((char= ch #\\)
-            (write-string "\\\\" output-stream))
-          ((not (graphic-char-p ch))
-            (format output-stream "\\u~4,'0x" code))
-          ((or (not *write-ascii-encoding*)
-               (ascii-printable-p code))
-            (write-char ch output-stream))
-          ((supplementary-plane-p code)
-            (format output-stream "\\u~4,'0x\\u~4,'0x"
-                    (+ (ash (- code #x10000) -10)
-                       #xd800)
-                    (+ (logand (- code #x10000)
-                               (- (ash 1 10) 1))
-                       #xdc00)))
-          (t
-            (format output-stream "\\u~4,'0x" code)))))
-    (write-char #\" output-stream)))
+  (write-json-string instance value))
 
 
 (defmethod json-value ((instance writer) (value hash-table))
@@ -185,8 +189,10 @@
       (write-string "false" (output-stream instance)))
     ((member value *write-null-values* :test #'eql)
       (write-string "null" (output-stream instance)))
+    ((null value)
+      (write-string "[]" (output-stream instance)))
     (t
-      (json-value instance (symbol-name value)))))
+      (write-json-string instance (symbol-name value)))))
 
 
 (defmethod json-eof ((instance writer)))

@@ -33,7 +33,8 @@
         :serial t
         :components
           ((:file "packages")
-           (:file "test")
+           (:file "read")
+           (:file "write")
            (:module fixtures
             :components
               ((:static-file "i_number_double_huge_neg_exp.txt")
