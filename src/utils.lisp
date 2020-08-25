@@ -6,12 +6,23 @@
 
 
 (defun plistp (plist)
-  (do ((tail plist (cddr tail)))
-      ((null tail) t)
-    (unless (and (keywordp (car tail))
-                 (cdr tail))
-      (return nil))))
+  (when (listp plist)
+    (do ((tail plist (cddr tail)))
+        ((null tail) t)
+      (unless (and (keywordp (car tail))
+                   (cdr tail))
+        (return nil)))))
+
+
+;(defun alistp (alist)
+;  (and (listp alist)
+;    (every #'consp alist)))
 
 
 (defun alistp (alist)
-  (every #'consp alist))
+  (when (listp alist)
+    (dolist (item alist t)
+      (unless (listp item)
+        (return nil)))))
+
+

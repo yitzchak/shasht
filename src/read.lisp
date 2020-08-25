@@ -1,7 +1,8 @@
 (in-package :shasht)
 
 
-(declaim (inline skip-whitespace expect-char test-char expect-string))
+(declaim (inline skip-whitespace expect-char test-char expect-string array-begin array-end
+                 object-begin object-end object-key json-eof))
 
 
 (define-condition shasht-parse-error (parse-error)
@@ -15,7 +16,7 @@
      :type character))
   (:report (lambda (condition stream)
              (format stream "Unexpected character ~A found during parsing."
-                            (shasht-parse-error-char condition)))))
+                     (shasht-parse-error-char condition)))))
 
 
 (defstruct reader-state
@@ -39,62 +40,57 @@
      :initarg :input-stream)))
 
 
-(defmethod json-array-begin ((instance reader))
+(defun array-begin (instance)
   (push (make-reader-state :type :array
                            :value (unless (eql *read-default-array-format* :list)
                                     (make-array 32 :adjustable t :fill-pointer 0)))
         (expression-stack instance)))
 
 
-(defmethod json-array-end ((instance reader))
+(defun array-end (instance)
   (let ((expr (pop (expression-stack instance))))
-    (json-value instance
-                (if (eql *read-default-array-format* :list)
-                  (nreverse (reader-state-value expr))
-                  (reader-state-value expr)))))
+    (value instance
+           (if (eql *read-default-array-format* :list)
+             (nreverse (reader-state-value expr))
+             (reader-state-value expr)))))
 
 
-(defmethod json-object-begin ((instance reader))
+(defun object-begin (instance)
   (push (make-reader-state :type :object
                            :value (unless (eql *read-default-object-format* :alist)
                                     (make-hash-table :test #'equal)))
         (expression-stack instance)))
 
 
-(defmethod json-object-end ((instance reader))
+(defun object-end (instance)
   (let ((expr (pop (expression-stack instance))))
-    (json-value instance
-                (if (eql *read-default-object-format* :alist)
-                  (nreverse (reader-state-value expr))
-                  (reader-state-value expr)))))
+    (value instance
+           (if (eql *read-default-object-format* :alist)
+             (nreverse (reader-state-value expr))
+             (reader-state-value expr)))))
 
 
-(defmethod json-key ((instance reader) key)
+(defun object-key (instance key)
   (setf (reader-state-key (first (expression-stack instance))) key))
 
 
-(defmethod json-value ((instance reader) value)
-  (let ((expr (first (expression-stack instance)))
-        (inter-value (case value
-                       (:true *read-default-true-value*)
-                       (:false *read-default-false-value*)
-                       (:null *read-default-null-value*)
-                       (otherwise value))))
+(defun value (instance value)
+  (let ((expr (first (expression-stack instance))))
     (cond
       ((null expr)
-        (push (make-reader-state :value inter-value) (expression-stack instance)))
+        (push (make-reader-state :value value) (expression-stack instance)))
       ((and (eql :array (reader-state-type expr))
             (eql :list *read-default-array-format*))
-        (push inter-value (reader-state-value expr)))
+        (push value (reader-state-value expr)))
       ((eql :array (reader-state-type expr))
-        (vector-push-extend inter-value (reader-state-value expr)))
+        (vector-push-extend value (reader-state-value expr)))
       ((eql :alist *read-default-object-format*)
-        (push (cons (reader-state-key expr) inter-value) (reader-state-value expr)))
+        (push (cons (reader-state-key expr) value) (reader-state-value expr)))
       (t
-        (setf (gethash (reader-state-key expr) (reader-state-value expr)) inter-value)))))
+        (setf (gethash (reader-state-key expr) (reader-state-value expr)) value)))))
 
 
-(defmethod json-eof ((instance reader))
+(defun json-eof (instance)
   (when (eof-error-p instance)
     (error 'end-of-file :stream (input-stream instance)))
   (push (eof-value instance) (expression-stack instance)))
@@ -104,9 +100,9 @@
   (declare (type stream input-stream))
   (tagbody
    read-next
-   (when (member (peek-char nil input-stream nil) '(#\space #\newline #\return #\tab) :test #'equal)
-     (read-char input-stream)
-     (go read-next))))
+    (when (member (peek-char nil input-stream nil) '(#\space #\newline #\return #\tab) :test #'equal)
+      (read-char input-stream)
+      (go read-next))))
 
 
 (defun expect-char (input-stream value &key (test #'equal))
@@ -288,7 +284,7 @@
    read-next
     ; If we are in an object then read the key first.
     (when (first objects-p)
-      (json-key handler (read-json-string input-stream))
+      (object-key handler (read-json-string input-stream))
       (skip-whitespace input-stream)
       (expect-char input-stream #\:))
 
@@ -301,46 +297,46 @@
       ((char= #\{ ch)
         (read-char input-stream)
         (skip-whitespace input-stream)
-        (json-object-begin handler)
+        (object-begin handler)
         (cond
           ((test-char input-stream #\})
-            (json-object-end handler))
+            (object-end handler))
           (t
             (push t objects-p)
             (go read-next))))
       ((char= #\[ ch)
         (read-char input-stream)
         (skip-whitespace input-stream)
-        (json-array-begin handler)
+        (array-begin handler)
         (cond
           ((test-char input-stream #\])
-            (json-array-end handler))
+            (array-end handler))
           (t
             (push nil objects-p)
             (go read-next))))
       ((char= #\" ch)
-        (json-value handler (read-json-string input-stream)))
+        (value handler (read-json-string input-stream)))
       ((position ch "-0123456789")
-        (json-value handler (read-json-number input-stream)))
+        (value handler (read-json-number input-stream)))
       ((char= #\t ch)
         (read-char input-stream)
         (expect-char input-stream #\r)
         (expect-char input-stream #\u)
         (expect-char input-stream #\e)
-        (json-value handler :true))
+        (value handler *read-default-true-value*))
       ((char= #\f ch)
         (read-char input-stream)
         (expect-char input-stream #\a)
         (expect-char input-stream #\l)
         (expect-char input-stream #\s)
         (expect-char input-stream #\e)
-        (json-value handler :false))
+        (value handler *read-default-false-value*))
       ((char= #\n ch)
         (read-char input-stream)
         (expect-char input-stream #\u)
         (expect-char input-stream #\l)
         (expect-char input-stream #\l)
-        (json-value handler :null))
+        (value handler *read-default-null-value*))
       (t
         (error 'shasht-parse-error :char ch)))
 
@@ -352,12 +348,12 @@
         (go read-next))
       ((first objects-p) ; We are at the end of an object so finish it and look for more separators.
         (expect-char input-stream #\})
-        (json-object-end handler)
+        (object-end handler)
         (pop objects-p)
         (go read-separator))
       (t ; We are at the end of an array so finish it and look for more separators.
         (expect-char input-stream #\])
-        (json-array-end handler)
+        (array-end handler)
         (pop objects-p)
         (go read-separator)))))
 
