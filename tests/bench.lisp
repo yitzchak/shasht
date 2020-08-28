@@ -22,8 +22,8 @@
   (jsown:parse +json-string+))
 
 
-(defun shasht/from-json/hash-table ()
-  "shasht hash-table"
+(defun shasht/from-json ()
+  "shasht"
   (shasht:from-json +json-string+))
 
 
@@ -42,7 +42,7 @@
         #'jonathan/from-json
         #'json-streams/from-json
         #'jsown/from-json
-        #'shasht/from-json/hash-table
+        #'shasht/from-json
         #'st-json/from-json
         #'yason/from-json))
 
@@ -54,6 +54,7 @@
             +json-parsers+)
     :title "JSON Read Times"
     :min 0
+    :size 80
     :labels (mapcar (lambda (fun) (documentation fun 'function)) +json-parsers+)))
 
 
@@ -105,16 +106,10 @@
   (jsown:to-json +jsown-obj+))
 
 
-(defun shasht/to-json/hash-table ()
-  "shasht hash-table"
+(defun shasht/to-json ()
+  "shasht"
   (let ((*print-pretty* nil))
     (shasht:to-json +json-hash-list+)))
-
-
-(defun shasht/to-json/alist ()
-  "shasht alist"
-  (let ((shasht:*write-alist-as-object* t))
-    (shasht:to-json +json-alist-list+)))
 
 
 (defun st-json/to-json ()
@@ -133,8 +128,7 @@
         #'jonathan/to-json
         #'json-streams/to-json
         #'jsown/to-json
-        #'shasht/to-json/hash-table
-        #'shasht/to-json/alist
+        #'shasht/to-json
         #'st-json/to-json
         #'yason/to-json))
 
@@ -146,6 +140,7 @@
             +json-writers+)
     :title "JSON Write Times"
     :min 0
+    :size 80
     :labels (mapcar (lambda (fun) (documentation fun 'function)) +json-writers+)))
 
 
