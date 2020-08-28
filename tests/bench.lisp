@@ -1,50 +1,50 @@
 (ql:quickload '(:cl-json :jonathan :json-streams :jsown :shasht :st-json :yason :cl-spark :the-cost-of-nothing))
 
-(defparameter +json-string+ "{\"key1\":\"value\",\"key2\":1,\"key3\":[\"Hello\",1.2e-34]}")
+(defparameter +json-string+ "{\"key1\":\"value\\n\",\"key2\":1,\"key3\":[\"Hello \\u2604\",1.2e-34,true,false,null]}")
 
-(defun cl-json/from-json ()
+(defun cl-json/r ()
   "cl-json"
   (cl-json:decode-json-from-string +json-string+))
 
 
-(defun jonathan/from-json ()
+(defun jonathan/r ()
   "jonathan"
   (jojo:parse +json-string+ :as :alist))
 
 
-(defun json-streams/from-json ()
+(defun json-streams/r ()
   "json-streams"
   (json-streams:json-parse +json-string+))
 
 
-(defun jsown/from-json ()
+(defun jsown/r ()
   "jsown"
   (jsown:parse +json-string+))
 
 
-(defun shasht/from-json ()
+(defun shasht/r ()
   "shasht"
   (shasht:from-json +json-string+))
 
 
-(defun st-json/from-json ()
+(defun st-json/r ()
   "st-json"
   (st-json:read-json +json-string+))
 
 
-(defun yason/from-json ()
+(defun yason/r ()
   "yason"
   (yason:parse +json-string+))
 
 
 (defparameter +json-parsers+
-  (list #'cl-json/from-json
-        #'jonathan/from-json
-        #'json-streams/from-json
-        #'jsown/from-json
-        #'shasht/from-json
-        #'st-json/from-json
-        #'yason/from-json))
+  (list #'cl-json/r
+        #'jonathan/r
+        #'json-streams/r
+        #'jsown/r
+        #'shasht/r
+        #'st-json/r
+        #'yason/r))
 
 
 (write-line
@@ -86,51 +86,51 @@
     "key3" '("Hello" 1.2d-34)))
 
 
-(defun cl-json/to-json ()
+(defun cl-json/w ()
   "cl-json"
   (cl-json:encode-json-to-string +json-alist-list+))
 
 
-(defun jonathan/to-json ()
+(defun jonathan/w ()
   "jonathan"
   (jojo:to-json +json-alist-list+ :from :alist))
 
 
-(defun json-streams/to-json ()
+(defun json-streams/w ()
   "json-streams"
   (json-streams:json-stringify +json-streams-obj+))
 
 
-(defun jsown/to-json ()
+(defun jsown/w ()
   "jsown"
   (jsown:to-json +jsown-obj+))
 
 
-(defun shasht/to-json ()
+(defun shasht/w ()
   "shasht"
   (let ((*print-pretty* nil))
     (shasht:to-json +json-hash-list+)))
 
 
-(defun st-json/to-json ()
+(defun st-json/w ()
   "st-json"
   (st-json:write-json-to-string +st-json-obj+))
 
 
-(defun yason/to-json ()
+(defun yason/w ()
   "yason"
   (with-output-to-string (s)
     (yason:encode-alist +json-alist-list+ s)))
 
 
 (defparameter +json-writers+
-  (list #'cl-json/to-json
-        #'jonathan/to-json
-        #'json-streams/to-json
-        #'jsown/to-json
-        #'shasht/to-json
-        #'st-json/to-json
-        #'yason/to-json))
+  (list #'cl-json/w
+        #'jonathan/w
+        #'json-streams/w
+        #'jsown/w
+        #'shasht/w
+        #'st-json/w
+        #'yason/w))
 
 
 (write-line
@@ -144,4 +144,59 @@
     :labels (mapcar (lambda (fun) (documentation fun 'function)) +json-writers+)))
 
 
+(defun cl-json/rw ()
+  "cl-json"
+  (cl-json:encode-json-to-string (cl-json:decode-json-from-string +json-string+)))
+
+
+(defun jonathan/rw ()
+  "jonathan"
+  (jojo:to-json (jojo:parse +json-string+ :as :alist) :from :alist))
+
+
+(defun json-streams/rw ()
+  "json-streams"
+  (json-streams:json-stringify (json-streams:json-parse +json-string+)))
+
+
+(defun jsown/rw ()
+  "jsown"
+  (jsown:to-json (jsown:parse +json-string+)))
+
+
+(defun shasht/rw ()
+  "shasht"
+  (shasht:to-json (shasht:from-json +json-string+)))
+
+
+(defun st-json/rw ()
+  "st-json"
+  (st-json:write-json-to-string (st-json:read-json +json-string+)))
+
+
+(defun yason/rw ()
+  "yason"
+  (with-output-to-string (s)
+    (yason:encode (yason:parse +json-string+) s)))
+
+
+(defparameter +json-rw+
+  (list #'cl-json/rw
+        #'jonathan/rw
+        #'json-streams/rw
+        #'jsown/rw
+        #'shasht/rw
+        #'st-json/rw
+        #'yason/rw))
+
+
+(write-line
+  (cl-spark:vspark
+    (mapcar (lambda (fun)
+              (the-cost-of-nothing:benchmark (funcall fun)))
+            +json-rw+)
+    :title "JSON Read/Write Times"
+    :min 0
+    :size 80
+    :labels (mapcar (lambda (fun) (documentation fun 'function)) +json-rw+)))
 

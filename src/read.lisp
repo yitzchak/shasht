@@ -297,7 +297,7 @@
             (go read-next))))
       ((char= #\" ch)
         (value expression-stack (read-json-string input-stream)))
-      ((position ch "-0123456789")
+      ((integer-char-p ch)
         (value expression-stack (read-json-number input-stream)))
       ((char= #\t ch)
         (read-char input-stream)

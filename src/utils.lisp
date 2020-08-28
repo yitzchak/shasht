@@ -26,3 +26,8 @@
         (return nil)))))
 
 
+(declaim (inline integer-char-p))
+(defun integer-char-p (char)
+  (declare (type character char))
+  (or (char<= #\0 char #\9)
+      (char= char #\-)))
