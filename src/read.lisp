@@ -213,11 +213,12 @@
 
 
 (defun read-json-fraction (input-stream value)
-  (do ((exponent -1 (1- exponent))
+  (do ((base (coerce 10 *read-default-float-format*))
+       (exponent -1 (1- exponent))
        (result value)
        (weight (read-digit input-stream) (read-digit* input-stream)))
       ((not weight) result)
-    (setq result (+ result (* (expt (coerce 10 *read-default-float-format*) exponent) weight)))))
+    (setq result (+ result (* (expt base exponent) weight)))))
 
 
 (defun read-json-integer (input-stream)
