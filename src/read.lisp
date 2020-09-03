@@ -234,6 +234,7 @@
 
 
 (defun read-json-number (input-stream)
+  (declare (type stream input-stream))
   (prog ((mantissa 0)
          (exponent 0)
          (frac-exponent 0)
@@ -241,65 +242,57 @@
          (exponent-accum #'+)
          digit
          ch)
+    (declare (type integer mantissa exponent frac-exponent)
+             (type function manitissa-accum exponent-accum)
+             (type (or null integer) digit)
+             (type (or null character) ch))
     (cond
       ((null (setf ch (read-char input-stream nil)))
-        (error))
+        (error 'shasht-parse-error :expected '(#\- #\. #\e #\E #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((char= #\- ch)
-        (setf mantissa-accum #'-))
+        (setf mantissa-accum #'-)
+        (setf ch (read-char input-stream nil))))
+    (cond
+      ((null ch)
+        (error 'shasht-parse-error :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((char= #\0 ch)
         (cond
           ((char= #\. (setf ch (read-char input-stream nil)))
-            (go frac))
+            (go read-frac))
           ((or (char= #\e ch)
-             (char= #\E ch))
-              (go exp))
+               (char= #\E ch))
+            (go read-exp))
           (t
             (unread-char ch input-stream)
             (return 0))))
       ((setf digit (digit-char-p ch))
-        (setf mantissa digit)
-        (go int-digits))
-      (t
-        (error)))
-    (cond
-      ((null (setf ch (read-char input-stream nil)))
-        (error))
-      ((char= #\0 ch)
-        (cond
-          ((char= #\. (setf ch (read-char input-stream nil)))
-            (go frac))
-          (t
-            (unread-char ch input-stream)
-            (return mantissa))))
-      ((setf digit (digit-char-p ch))
-        (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit)))
+        (setf mantissa (funcall mantissa-accum digit)))
       (t
         (error 'shasht-parse-error :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
-   int-digits
+   read-int-digit
     (cond
       ((null (setf ch (read-char input-stream nil)))
         (return mantissa))
-      ((char= #\. ch)
-        (go frac))
+      ((char= #\. ch))
       ((or (char= #\e ch)
            (char= #\E ch))
-        (go exp))
+        (go read-exp))
       ((setf digit (digit-char-p ch))
         (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit))
-        (go int-digits))
+        (go read-int-digit))
       (t
         (unread-char ch input-stream)
         (return mantissa)))
-   frac
+   read-frac
     (cond
       ((null (setf ch (read-char input-stream nil)))
-        (error))
+        (error 'shasht-parse-error :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((setf digit (digit-char-p ch))
         (decf frac-exponent)
         (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit)))
       (t
         (error 'shasht-parse-error :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
-   frac-rep
+   read-frac-digit
     (cond
       ((null (setf ch (read-char input-stream nil)))
         (go finish))
@@ -308,36 +301,31 @@
       ((setf digit (digit-char-p ch))
         (decf frac-exponent)
         (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit))
-        (go frac-rep))
+        (go read-frac-digit))
       (t
         (unread-char ch input-stream)
         (go finish)))
-   exp
+   read-exp
     (cond
       ((null (setf ch (read-char input-stream nil)))
         (error 'shasht-parse-error :char ch :expected '(#\+ #\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
-      ((char= #\+ ch))
+      ((char= #\+ ch)
+        (setf ch (read-char input-stream nil)))
       ((char= #\- ch)
-        (setf exponent-accum #'-))
-      ((setf digit (digit-char-p ch))
-        (setf exponent (funcall exponent-accum (* 10 exponent) digit))
-        (go exp-digits))
-      (t
-        (error 'shasht-parse-error :char ch :expected '(#\+ #\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
+        (setf ch (read-char input-stream nil))
+        (setf exponent-accum #'-)))
     (cond
-      ((null (setf ch (read-char input-stream nil)))
-        (error 'shasht-parse-error :char ch :expected '(#\+ #\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
-      ((setf digit (digit-char-p ch))
-        (setf exponent (funcall exponent-accum (* 10 exponent) digit))
-        (go exp-digits))
+      ((and ch
+            (setf digit (digit-char-p ch)))
+        (setf exponent (funcall exponent-accum (* 10 exponent) digit)))
       (t
-        (error 'shasht-parse-error :char ch :expected '(#\+ #\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
-   exp-digits
+        (error 'shasht-parse-error :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
+   read-exp-digit
     (cond
       ((null (setf ch (read-char input-stream nil))))
       ((setf digit (digit-char-p ch))
         (setf exponent (funcall exponent-accum (* 10 exponent) digit))
-        (go exp-digits))
+        (go read-exp-digit))
       (t
         (unread-char ch input-stream)))
    finish
@@ -364,7 +352,6 @@
           (error 'end-of-file :stream input-stream))
         (push eof-value expression-stack))
       ((char= #\{ ch)
-        ;(read-char input-stream)
         (skip-whitespace input-stream)
         (object-begin expression-stack)
         (cond
@@ -374,7 +361,6 @@
             (push t objects-p)
             (go read-next))))
       ((char= #\[ ch)
-        ;(read-char input-stream)
         (skip-whitespace input-stream)
         (array-begin expression-stack)
         (cond
@@ -390,20 +376,17 @@
         (unread-char ch input-stream)
         (value expression-stack (read-json-number input-stream)))
       ((char= #\t ch)
-        ;(read-char input-stream)
         (expect-char input-stream #\r)
         (expect-char input-stream #\u)
         (expect-char input-stream #\e)
         (value expression-stack *read-default-true-value*))
       ((char= #\f ch)
-        ;(read-char input-stream)
         (expect-char input-stream #\a)
         (expect-char input-stream #\l)
         (expect-char input-stream #\s)
         (expect-char input-stream #\e)
         (value expression-stack *read-default-false-value*))
       ((char= #\n ch)
-        ;(read-char input-stream)
         (expect-char input-stream #\u)
         (expect-char input-stream #\l)
         (expect-char input-stream #\l)
