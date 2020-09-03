@@ -1,7 +1,11 @@
 (in-package :shasht)
 
 
-;(declaim (inline skip-whitespace expect-char test-char expect-string))
+(declaim #+(or)(inline skip-whitespace expect-char test-char expect-string)
+         (ftype (function (fixnum) boolean) high-surrogate-p)
+         (ftype (function (stream) fixnum) read-encoded-char)
+         (ftype (function (stream &optional boolean) string) read-json-string)
+         (ftype (function (stream) number) read-json-number))
 
 (defparameter +whitespace-haystack+
               (coerce '(#\space #\newline #\return #\tab) 'string ))
@@ -128,31 +132,6 @@
     (expect-char input-stream (char token pos))))
 
 
-(defun read-digit* (input-stream &optional hexadecimal)
-  (declare (type stream input-stream)
-           (type boolean hexadecimal))
-  (let* ((ch (read-char input-stream nil))
-         (weight (when ch
-                   (digit-char-p ch (if hexadecimal 16 10)))))
-    (declare (type (or null character) ch)
-             (type (or null fixnum) weight))
-    (when (and ch (not weight))
-      (unread-char ch input-stream))
-    weight))
-
-
-(defun read-digit (input-stream &optional hexadecimal)
-  (declare (type stream input-stream)
-           (type boolean hexadecimal))
-  (let* ((ch (read-char input-stream nil))
-         (weight (when ch (digit-char-p ch (if hexadecimal 16 10)))))
-    (declare (type (or null character) ch)
-             (type (or null fixnum) weight))
-    (unless weight
-      (error 'shasht-parse-error :char ch :expected (list #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
-    weight))
-
-
 (defun high-surrogate-p (code)
   (declare (type fixnum code))
   (<= #xd800 code #xdfff))
@@ -160,20 +139,29 @@
 
 (defun read-encoded-char (input-stream)
   (declare (type stream input-stream))
-  (logior (ash (read-digit input-stream t) 12)
-          (ash (read-digit input-stream t) 8)
-          (ash (read-digit input-stream t) 4)
-          (read-digit input-stream t)))
+  (prog (ch digit (result 0) (count 16))
+    (declare (type (or null fixnum) digit result count)
+             (type (or null character) ch))
+   repeat
+    (when (or (null (setf ch (read-char input-stream nil)))
+              (null (setf digit (digit-char-p ch 16))))
+      (error 'shasht-parse-error :char ch :expected (list #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
+    (setf result (logior result (ash digit (decf count 4))))
+    (when (zerop count)
+      (return result))
+    (go repeat)))
 
 
-(defun read-json-string (input-stream)
+(defun read-json-string (input-stream &optional skip-quote)
   (declare (type stream input-stream))
   (skip-whitespace input-stream)
-  (expect-char input-stream #\")
+  (unless skip-quote
+    (expect-char input-stream #\"))
   (prog ((result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character))
          ch hi lo)
+    (declare (type (or null character) ch))
    read-next
-    (setq ch (read-char input-stream nil))
+    (setf ch (read-char input-stream nil))
     (cond
       ((or (null ch)
            (control-char-p ch))
@@ -184,33 +172,35 @@
         (vector-push-extend ch result)
         (go read-next)))
 
-    (setq ch (read-char input-stream nil))
+    (setf ch (read-char input-stream nil))
     (cond
-      ((equal #\b ch)
+      ((null ch)
+        (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u)))
+      ((char= #\b ch)
         (vector-push-extend #\backspace result)
         (go read-next))
-      ((equal #\f ch)
+      ((char= #\f ch)
         (vector-push-extend #\page result)
         (go read-next))
-      ((equal #\n ch)
+      ((char= #\n ch)
         (vector-push-extend #\newline result)
         (go read-next))
-      ((equal #\r ch)
+      ((char= #\r ch)
         (vector-push-extend #\return result)
         (go read-next))
-      ((equal #\t ch)
+      ((char= #\t ch)
         (vector-push-extend #\tab result)
         (go read-next))
-      ((equal #\" ch)
+      ((char= #\" ch)
         (vector-push-extend #\" result)
         (go read-next))
-      ((equal #\/ ch)
+      ((char= #\/ ch)
         (vector-push-extend #\/ result)
         (go read-next))
-      ((equal #\\ ch)
+      ((char= #\\ ch)
         (vector-push-extend #\\ result)
         (go read-next))
-      ((not (equal #\u ch))
+      ((char/= #\u ch)
         (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
 
     (setq hi (read-encoded-char input-stream))
@@ -370,8 +360,7 @@
             (push nil objects-p)
             (go read-next))))
       ((char= #\" ch)
-        (unread-char ch input-stream)
-        (value expression-stack (read-json-string input-stream)))
+        (value expression-stack (read-json-string input-stream t)))
       ((integer-char-p ch)
         (unread-char ch input-stream)
         (value expression-stack (read-json-number input-stream)))
