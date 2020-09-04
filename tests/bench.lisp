@@ -1,6 +1,8 @@
 (ql:quickload '(:cl-json :jonathan :json-streams :jsown :shasht :st-json :yason :cl-spark :the-cost-of-nothing))
 
-(defparameter +json-string+ "{\"key1\":\"value\\n\",\"key2\":1,\"key3\":[\"Hello \\u2604\",1.2e-34,true,false,null]}")
+(defparameter +json-string+ "{\"key1\": \"value\\n\",
+\"key2\":1,\"key3\" :[\"Hello \\u2604\",  1.2e-34 ,true,
+  false,null]}")
 
 (defun cl-json/r ()
   "cl-json"
