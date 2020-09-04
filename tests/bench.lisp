@@ -26,7 +26,7 @@
 
 (defun shasht/r ()
   "shasht"
-  (shasht:from-json +json-string+))
+  (shasht:read-json +json-string+))
 
 
 (defun st-json/r ()
@@ -111,7 +111,7 @@
 (defun shasht/w ()
   "shasht"
   (let ((*print-pretty* nil))
-    (shasht:to-json +json-hash-list+)))
+    (shasht:write-json +json-hash-list+ nil)))
 
 
 (defun st-json/w ()
@@ -168,7 +168,7 @@
 
 (defun shasht/rw ()
   "shasht"
-  (shasht:to-json (shasht:from-json +json-string+)))
+  (shasht:write-json (shasht:read-json +json-string+) nil))
 
 
 (defun st-json/rw ()

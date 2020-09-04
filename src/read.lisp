@@ -1,7 +1,8 @@
 (in-package :shasht)
 
 
-(declaim #+(or)(inline skip-whitespace expect-char high-surrogate-p)
+(declaim (or)(inline skip-whitespace expect-char high-surrogate-p)
+         (or)(optimize (speed 3) (safety 0))
          (ftype (function (fixnum) boolean) high-surrogate-p)
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream boolean) string) read-json-string)
@@ -303,9 +304,16 @@
     (return (* mantissa (expt (coerce 10 *read-default-float-format*) (+ frac-exponent exponent))))))
 
 
-(defun read-json (&optional (input-stream *standard-input*) (eof-error-p t) eof-value single-value-p)
+(defun read-json (&optional input-stream-or-string (eof-error-p t) eof-value single-value-p)
   (declare (type boolean eof-error-p single-value-p))
-  (prog (ch objects-p expression-stack)
+  (prog (ch objects-p expression-stack
+         (input-stream (cond
+                          ((null input-stream-or-string)
+                             *standard-input*)
+                          ((stringp input-stream-or-string)
+                            (make-string-input-stream input-stream-or-string))
+                          (t
+                            input-stream-or-string))))
     (declare (type (or null character) ch))
    read-next
     ; If we are in an object then read the key first.
@@ -381,10 +389,4 @@
     ; We just finished an object or an array so look for more separators.
     (pop objects-p)
     (go read-separator)))
-
-
-(defun from-json (value)
-  ;(with-input-from-string (input-stream value)
-;    (read-json input-stream)))
-  (read-json (make-string-input-stream value)))
 

@@ -195,18 +195,19 @@
       (write-json-string instance (symbol-name value)))))
 
 
-(defgeneric write-json (value &optional output-stream))
+(defgeneric print-json-object (value output-stream))
 
 
-(defmethod write-json ((value number) &optional output-stream)
-  (format output-stream "~,,,,,,'eE" value))
+(defmethod print-json-object ((value number) output-stream)
+  (format output-stream "~,,,,,,'eE" value)
+  value)
 
 
-(defmethod write-json ((value integer) &optional output-stream)
+(defmethod print-json-object ((value integer) output-stream)
   (prin1 value output-stream))
 
 
-(defmethod write-json ((value string) &optional output-stream)
+(defmethod print-json-object ((value string) output-stream)
   (write-char #\" output-stream)
   (do ((index 0 (1+ index)))
       ((>= index (length value)))
@@ -241,24 +242,26 @@
                      #xdc00)))
         (t
           (format output-stream "\\u~4,'0x" code)))))
-  (write-char #\" output-stream))
+  (write-char #\" output-stream)
+  value)
 
 
-(defmethod write-json ((value hash-table) &optional output-stream)
+(defmethod print-json-object ((value hash-table) output-stream)
   (write-char #\{ output-stream)
   (let (delim)
     (maphash (lambda (key val)
                (if delim
                  (write-char delim output-stream)
                  (setf delim #\,))
-               (write-json key output-stream)
+               (print-json-object key output-stream)
                (write-char #\: output-stream)
-               (write-json val output-stream))
+               (print-json-object val output-stream))
              value))
-  (write-char #\} output-stream))
+  (write-char #\} output-stream)
+  value)
 
 
-(defmethod write-json ((value list) &optional output-stream)
+(defmethod print-json-object ((value list) output-stream)
   (cond
     ((and *write-alist-as-object*
           (alistp value))
@@ -268,9 +271,9 @@
           (if delim
             (write-char delim output-stream)
             (setf delim #\,))
-          (write-json (car pair) output-stream)
+          (print-json-object (car pair) output-stream)
           (write-char #\: output-stream)
-          (write-json (cdr pair) output-stream)))
+          (print-json-object (cdr pair) output-stream)))
       (write-char #\} output-stream))
     ((and *write-plist-as-object*
           (plistp value))
@@ -280,9 +283,9 @@
                             (if delim
                               (write-char delim output-stream)
                               (setf delim #\,))
-                            (write-json k output-stream)
+                            (print-json-object k output-stream)
                             (write-char #\: output-stream)
-                            (write-json v output-stream)))
+                            (print-json-object v output-stream)))
       (write-char #\} output-stream))
     (t
       (write-char #\[ output-stream)
@@ -291,20 +294,22 @@
           (if delim
             (write-char delim output-stream)
             (setf delim #\,))
-          (write-json element output-stream)))
-      (write-char #\] output-stream))))
+          (print-json-object element output-stream)))
+      (write-char #\] output-stream)))
+  value)
 
 
-(defmethod write-json ((value vector) &optional output-stream)
+(defmethod print-json-object ((value vector) output-stream)
   (write-char #\[ output-stream)
   (dotimes (position (length value))
     (unless (zerop position)
       (write-char #\, output-stream))
-    (write-json (elt value position) output-stream))
-  (write-char #\] output-stream))
+    (print-json-object (elt value position) output-stream))
+  (write-char #\] output-stream)
+  value)
 
 
-(defmethod write-json ((value symbol) &optional output-stream)
+(defmethod print-json-object ((value symbol) output-stream)
   (cond
     ((member value *write-true-values* :test #'eql)
       (write-string "true" output-stream))
@@ -315,25 +320,14 @@
     ((null value)
       (write-string "[]" output-stream))
     (t
-      (write-json (symbol-name value) output-stream))))
+      (print-json-object (symbol-name value) output-stream)))
+  value)
 
 
-; (defun write-json (object &optional output-stream)
-;   (json-value (make-instance 'writer :output-stream (or output-stream *standard-output*))
-;               object)
-;   object)
-
-
-(defun pprint-json (object &optional output-stream)
-  (let ((*print-pretty* t))
-    (json-value (make-instance 'writer :output-stream (or output-stream *standard-output*))
-                object)
-    object))
-
-
-
-(defun to-json (object)
-  (with-output-to-string (output-stream)
-    (write-json object output-stream)))
+(defun write-json (value &optional (output-stream t))
+  (if (null output-stream)
+    (with-output-to-string (output-stream)
+      (print-json-object value output-stream))
+    (print-json-object value output-stream)))
 
 

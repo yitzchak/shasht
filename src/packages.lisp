@@ -1,16 +1,13 @@
 (defpackage #:shasht
   (:use #:common-lisp)
   (:export
-    #:from-json
-    #:pprint-json
+    #:print-json-object
     #:*read-default-array-format*
     #:*read-default-false-value*
     #:*read-default-null-value*
     #:*read-default-object-format*
     #:*read-default-true-value*
     #:read-json
-    #:to-json
-    #:with-object
     #:*write-alist-as-object*
     #:*write-ascii-encoding*
     #:*write-false-values*
