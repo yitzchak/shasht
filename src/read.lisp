@@ -1,14 +1,12 @@
 (in-package :shasht)
 
 
-(declaim #+(or)(inline skip-whitespace expect-char)
+(declaim #+(or)(inline skip-whitespace expect-char high-surrogate-p)
          (ftype (function (fixnum) boolean) high-surrogate-p)
          (ftype (function (stream) fixnum) read-encoded-char)
-         (ftype (function (stream &optional boolean) string) read-json-string)
-         (ftype (function (stream) number) read-json-number))
-
-(defparameter +whitespace-haystack+
-              (coerce '(#\space #\newline #\return #\tab) 'string ))
+         (ftype (function (stream boolean) string) read-json-string)
+         (ftype (function (stream) number) read-json-number)
+         (ftype (function (stream character boolean boolean) boolean) expect-char))
 
 
 (define-condition shasht-parse-error (parse-error)
@@ -136,17 +134,20 @@
     (go repeat)))
 
 
-(defun read-json-string (input-stream &optional skip-quote)
-  (declare (type stream input-stream))
+(defun read-json-string (input-stream skip-quote)
+  (declare (type stream input-stream)
+           (type boolean skip-quote))
   (unless skip-quote
     (expect-char input-stream #\" t t))
   (prog ((result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character))
-         ch hi lo)
-    (declare (type (or null character) ch))
+         (hi 0)
+         (lo 0)
+         ch)
+    (declare (type (or null character) ch)
+             (type fixnum hi lo))
    read-next
-    (setf ch (read-char input-stream nil))
     (cond
-      ((or (null ch)
+      ((or (null (setf ch (read-char input-stream nil)))
            (control-char-p ch))
         (error 'shasht-parse-error :char ch))
       ((char= #\" ch)
@@ -155,9 +156,8 @@
         (vector-push-extend ch result)
         (go read-next)))
 
-    (setf ch (read-char input-stream nil))
     (cond
-      ((null ch)
+      ((null (setf ch (read-char input-stream nil)))
         (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u)))
       ((char= #\b ch)
         (vector-push-extend #\backspace result)
@@ -186,14 +186,12 @@
       ((char/= #\u ch)
         (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
 
-    (setq hi (read-encoded-char input-stream))
-
     (cond
-      ((high-surrogate-p hi)
+      ((high-surrogate-p (setf hi (read-encoded-char input-stream)))
         #+cmucl (vector-push-extend (code-char hi) result) ; CMUCL is UTF-16
         (expect-char input-stream #\\ nil t)
         (expect-char input-stream #\u nil t)
-        (setq lo (read-encoded-char input-stream))
+        (setf lo (read-encoded-char input-stream))
         (vector-push-extend
           (code-char #+cmucl lo
                      #-cmucl (+ #x10000
@@ -312,7 +310,7 @@
    read-next
     ; If we are in an object then read the key first.
     (when (first objects-p)
-      (object-key expression-stack (read-json-string input-stream))
+      (object-key expression-stack (read-json-string input-stream nil))
       (expect-char input-stream #\: t t))
 
     (skip-whitespace input-stream)
