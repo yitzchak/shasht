@@ -1,7 +1,7 @@
 (in-package :shasht)
 
 
-(declaim #+(or)(inline skip-whitespace expect-char test-char expect-string)
+(declaim #+(or)(inline skip-whitespace expect-char)
          (ftype (function (fixnum) boolean) high-surrogate-p)
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream &optional boolean) string) read-json-string)
@@ -80,37 +80,28 @@
            (setf (gethash (reader-state-key (first ,expression-stack)) (reader-state-value (first ,expression-stack))) ,value))))))
 
 
-(defun expect-char (input-stream value &key (test #'equal))
+(defun expect-char (input-stream value skip-whitespace error-p)
   (declare (type stream input-stream)
            (type character value))
-  (let ((ch (read-char input-stream nil)))
+  (prog (ch)
     (declare (type (or null character) ch))
-    (unless (funcall test value ch)
-      (error 'shasht-parse-error :char ch :expected (list value)))))
-
-
-(defun test-char (input-stream value &key (test #'equal))
-  (declare (type stream input-stream)
-           (type character value))
-  (let* ((ch (read-char input-stream nil))
-         (ev (funcall test value ch)))
-    (unless ev
-      (unread-char ch input-stream))
-    ev))
-
-
-(defun test-char-string (input-stream haystack)
-  (declare (type stream input-stream)
-           (type string haystack))
-  (let ((ch (read-char input-stream nil)))
+   repeat
     (cond
+      ((and (null (setf ch (read-char input-stream nil)))
+            error-p)
+        (error 'shasht-parse-error :char ch :expected (list value)))
       ((null ch)
-        nil)
-      ((position ch haystack :test #'char=)
-        t)
+        (return nil))
+      ((char= value ch)
+        (return t))
+      ((and skip-whitespace
+            (member ch '(#\space #\newline #\return #\tab) :test #'char=))
+        (go repeat))
+      (error-p
+        (error 'shasht-parse-error :char ch :expected (list value)))
       (t
         (unread-char ch input-stream)
-        nil))))
+        (return nil)))))
 
 
 (defun skip-whitespace (input-stream)
@@ -123,13 +114,6 @@
       (go read-next))
     (when ch
       (unread-char ch input-stream))))
-
-
-(defun expect-string (input-stream token)
-  (declare (type stream input-stream)
-           (type simple-string token))
-  (dotimes (pos (length token))
-    (expect-char input-stream (char token pos))))
 
 
 (defun high-surrogate-p (code)
@@ -154,9 +138,8 @@
 
 (defun read-json-string (input-stream &optional skip-quote)
   (declare (type stream input-stream))
-  (skip-whitespace input-stream)
   (unless skip-quote
-    (expect-char input-stream #\"))
+    (expect-char input-stream #\" t t))
   (prog ((result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character))
          ch hi lo)
     (declare (type (or null character) ch))
@@ -208,8 +191,8 @@
     (cond
       ((high-surrogate-p hi)
         #+cmucl (vector-push-extend (code-char hi) result) ; CMUCL is UTF-16
-        (expect-char input-stream #\\)
-        (expect-char input-stream #\u)
+        (expect-char input-stream #\\ nil t)
+        (expect-char input-stream #\u nil t)
         (setq lo (read-encoded-char input-stream))
         (vector-push-extend
           (code-char #+cmucl lo
@@ -330,8 +313,7 @@
     ; If we are in an object then read the key first.
     (when (first objects-p)
       (object-key expression-stack (read-json-string input-stream))
-      (skip-whitespace input-stream)
-      (expect-char input-stream #\:))
+      (expect-char input-stream #\: t t))
 
     (skip-whitespace input-stream)
     (setq ch (read-char input-stream nil))
@@ -342,19 +324,17 @@
           (error 'end-of-file :stream input-stream))
         (push eof-value expression-stack))
       ((char= #\{ ch)
-        (skip-whitespace input-stream)
         (object-begin expression-stack)
         (cond
-          ((test-char input-stream #\})
+          ((expect-char input-stream #\} t nil)
             (object-end expression-stack))
           (t
             (push t objects-p)
             (go read-next))))
       ((char= #\[ ch)
-        (skip-whitespace input-stream)
         (array-begin expression-stack)
         (cond
-          ((test-char input-stream #\])
+          ((expect-char input-stream #\] t nil)
             (array-end expression-stack))
           (t
             (push nil objects-p)
@@ -365,20 +345,20 @@
         (unread-char ch input-stream)
         (value expression-stack (read-json-number input-stream)))
       ((char= #\t ch)
-        (expect-char input-stream #\r)
-        (expect-char input-stream #\u)
-        (expect-char input-stream #\e)
+        (expect-char input-stream #\r nil t)
+        (expect-char input-stream #\u nil t)
+        (expect-char input-stream #\e nil t)
         (value expression-stack *read-default-true-value*))
       ((char= #\f ch)
-        (expect-char input-stream #\a)
-        (expect-char input-stream #\l)
-        (expect-char input-stream #\s)
-        (expect-char input-stream #\e)
+        (expect-char input-stream #\a nil t)
+        (expect-char input-stream #\l nil t)
+        (expect-char input-stream #\s nil t)
+        (expect-char input-stream #\e nil t)
         (value expression-stack *read-default-false-value*))
       ((char= #\n ch)
-        (expect-char input-stream #\u)
-        (expect-char input-stream #\l)
-        (expect-char input-stream #\l)
+        (expect-char input-stream #\u nil t)
+        (expect-char input-stream #\l nil t)
+        (expect-char input-stream #\l nil t)
         (value expression-stack *read-default-null-value*))
       (t
         (error 'shasht-parse-error :char ch)))
@@ -392,13 +372,13 @@
             (when ch
               (error 'shasht-parse-error :char ch))))
         (return (reader-state-value (first expression-stack))))
-      ((test-char input-stream #\,) ; If there is a comma then there is another value or key/value.
+      ((expect-char input-stream #\, nil nil) ; If there is a comma then there is another value or key/value.
         (go read-next))
       ((first objects-p) ; We are at the end of an object.
-        (expect-char input-stream #\})
+        (expect-char input-stream #\} nil t)
         (object-end expression-stack))
       (t ; We are at the end of an array.
-        (expect-char input-stream #\])
+        (expect-char input-stream #\] nil t)
         (array-end expression-stack)))
     ; We just finished an object or an array so look for more separators.
     (pop objects-p)
