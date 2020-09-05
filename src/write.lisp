@@ -8,6 +8,11 @@
 
 (defparameter *delimiter* nil)
 (defparameter *next-delimiter* nil)
+(defparameter *indent-level* 0)
+(defparameter *indent-increment* 2)
+(defparameter *indent-character* #\space)
+(defparameter *terminator* nil)
+(defparameter *next-terminator* nil)
 
 
 (defun write-json-string (value output-stream)
@@ -50,21 +55,53 @@
 
 
 (defmacro with-json-array (output-stream &body body)
-  `(let ((*delimiter* nil)
-         (*next-delimiter* ","))
+  `(let* ((*terminator* "]")
+          (*next-terminator* (if *print-pretty*
+                               (concatenate 'string
+                                            (string #\newline)
+                                            (make-string *indent-level* :initial-element *indent-character*)
+                                            "]")
+                               "]"))
+          (*indent-level* (+ *indent-level* *indent-increment*))
+          (*delimiter* (when *print-pretty*
+                         (concatenate 'string
+                                      (string #\newline)
+                                      (make-string *indent-level* :initial-element *indent-character*))))
+          (*next-delimiter* (if *print-pretty*
+                              (concatenate 'string
+                                           ","
+                                           (string #\newline)
+                                           (make-string *indent-level* :initial-element *indent-character*))
+                              ",")))
      (declare (type (or null string) *delimiter* *next-delimiter*))
      (write-char #\[ ,output-stream)
      (locally ,@body)
-     (write-char #\] ,output-stream)))
+     (write-string *terminator* ,output-stream)))
 
 
 (defmacro with-json-object (output-stream &body body)
-  `(let ((*delimiter* nil)
-         (*next-delimiter* ","))
+  `(let* ((*terminator* "}")
+          (*next-terminator* (if *print-pretty*
+                               (concatenate 'string
+                                            (string #\newline)
+                                            (make-string *indent-level* :initial-element *indent-character*)
+                                            "}")
+                               "}"))
+          (*indent-level* (+ *indent-level* *indent-increment*))
+          (*delimiter* (when *print-pretty*
+                         (concatenate 'string
+                                      (string #\newline)
+                                      (make-string *indent-level* :initial-element *indent-character*))))
+          (*next-delimiter* (if *print-pretty*
+                              (concatenate 'string
+                                           ","
+                                           (string #\newline)
+                                           (make-string *indent-level* :initial-element *indent-character*))
+                              ",")))
      (declare (type (or null string) *delimiter* *next-delimiter*))
      (write-char #\{ ,output-stream)
      (locally ,@body)
-     (write-char #\} ,output-stream)))
+     (write-string *terminator* ,output-stream)))
 
 
 (defgeneric print-json-value (value output-stream))
@@ -72,15 +109,18 @@
 
 (defun print-json-key-value (key value output-stream)
   (print-json-value key output-stream)
-  (let ((*delimiter* ":"))
+  (let ((*delimiter* (if *print-pretty*
+                       ": "
+                       ":")))
     (print-json-value value output-stream)))
 
 
 (defmethod print-json-value :before (value output-stream)
   (declare (ignore value))
-  (if *delimiter*
-    (write-string *delimiter* output-stream)
-    (setf *delimiter* *next-delimiter*)))
+  (when *delimiter*
+    (write-string *delimiter* output-stream))
+  (setf *delimiter* *next-delimiter*)
+  (setf *terminator* *next-terminator*))
 
 
 (defmethod print-json-value ((value number) output-stream)

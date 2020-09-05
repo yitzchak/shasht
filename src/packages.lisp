@@ -1,6 +1,8 @@
 (defpackage #:shasht
   (:use #:common-lisp)
   (:export
+    #:*indent-character*
+    #:*indent-increment*
     #:print-json-key-value
     #:print-json-value
     #:*read-default-array-format*
