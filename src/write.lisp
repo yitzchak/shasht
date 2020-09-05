@@ -2,11 +2,51 @@
 
 
 (declaim #+(or)(optimize (speed 3) (safety 0))
-         (ftype (function (t t stream) t) print-json-key-value))
+         (ftype (function (t t stream) t) print-json-key-value)
+         (ftype (function (string stream) string) write-json-string))
 
 
 (defparameter *delimiter* nil)
 (defparameter *next-delimiter* nil)
+
+
+(defun write-json-string (value output-stream)
+  (write-char #\" output-stream)
+  (do ((index 0 (1+ index)))
+      ((>= index (length value)))
+    (let* ((ch (char value index))
+           (code (char-code ch)))
+      (cond
+        ((char= ch #\newline)
+          (write-string "\\n" output-stream))
+        ((char= ch #\return)
+          (write-string "\\r" output-stream))
+        ((char= ch #\tab)
+          (write-string "\\t" output-stream))
+        ((char= ch #\page)
+          (write-string "\\f" output-stream))
+        ((char= ch #\backspace)
+          (write-string "\\b" output-stream))
+        ((char= ch #\")
+          (write-string "\\\"" output-stream))
+        ((char= ch #\\)
+          (write-string "\\\\" output-stream))
+        ((not (graphic-char-p ch))
+          (format output-stream "\\u~4,'0x" code))
+        ((or (not *write-ascii-encoding*)
+             (ascii-printable-p code))
+          (write-char ch output-stream))
+        ((supplementary-plane-p code)
+          (format output-stream "\\u~4,'0x\\u~4,'0x"
+                  (+ (ash (- code #x10000) -10)
+                     #xd800)
+                  (+ (logand (- code #x10000)
+                             (- (ash 1 10) 1))
+                     #xdc00)))
+        (t
+          (format output-stream "\\u~4,'0x" code)))))
+  (write-char #\" output-stream)
+  value)
 
 
 (defmacro with-json-array (output-stream &body body)
@@ -53,42 +93,7 @@
 
 
 (defmethod print-json-value ((value string) output-stream)
-  (write-char #\" output-stream)
-  (do ((index 0 (1+ index)))
-      ((>= index (length value)))
-    (let* ((ch (char value index))
-           (code (char-code ch)))
-      (cond
-        ((char= ch #\newline)
-          (write-string "\\n" output-stream))
-        ((char= ch #\return)
-          (write-string "\\r" output-stream))
-        ((char= ch #\tab)
-          (write-string "\\t" output-stream))
-        ((char= ch #\page)
-          (write-string "\\f" output-stream))
-        ((char= ch #\backspace)
-          (write-string "\\b" output-stream))
-        ((char= ch #\")
-          (write-string "\\\"" output-stream))
-        ((char= ch #\\)
-          (write-string "\\\\" output-stream))
-        ((not (graphic-char-p ch))
-          (format output-stream "\\u~4,'0x" code))
-        ((or (not *write-ascii-encoding*)
-             (ascii-printable-p code))
-          (write-char ch output-stream))
-        ((supplementary-plane-p code)
-          (format output-stream "\\u~4,'0x\\u~4,'0x"
-                  (+ (ash (- code #x10000) -10)
-                     #xd800)
-                  (+ (logand (- code #x10000)
-                             (- (ash 1 10) 1))
-                     #xdc00)))
-        (t
-          (format output-stream "\\u~4,'0x" code)))))
-  (write-char #\" output-stream)
-  value)
+  (write-json-string value output-stream))
 
 
 (defmethod print-json-value ((value hash-table) output-stream)
@@ -140,7 +145,7 @@
     ((null value)
       (write-string "[]" output-stream))
     (t
-      (print-json-value (symbol-name value) output-stream)))
+      (write-json-string (symbol-name value) output-stream)))
   value)
 
 

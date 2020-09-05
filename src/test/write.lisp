@@ -11,7 +11,7 @@
                (shasht:*write-plist-as-object* ,plist)
                (shasht:*write-ascii-encoding* ,ascii)
                (shasht:*write-false-values* ,(or false '(quote (nil :false)))))
-           (shasht:to-json ,value))))))
+           (shasht:write-json ,value nil))))))
 
 
 (define-write-test "Write :null as null"
