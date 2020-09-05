@@ -1,8 +1,8 @@
 (in-package :shasht)
 
 
-(declaim (or)(inline skip-whitespace expect-char high-surrogate-p)
-         (or)(optimize (speed 3) (safety 0))
+(declaim #+(or)(inline skip-whitespace expect-char)
+         #+(or)(optimize (speed 3) (safety 0))
          (ftype (function (fixnum) boolean) high-surrogate-p)
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream boolean) string) read-json-string)
@@ -113,11 +113,6 @@
       (go read-next))
     (when ch
       (unread-char ch input-stream))))
-
-
-(defun high-surrogate-p (code)
-  (declare (type fixnum code))
-  (<= #xd800 code #xdfff))
 
 
 (defun read-encoded-char (input-stream)
