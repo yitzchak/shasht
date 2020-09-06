@@ -11,12 +11,14 @@
     #:*read-default-object-format*
     #:*read-default-true-value*
     #:read-json
+    #:shasht-parse-error
     #:with-json-array
     #:with-json-object
     #:*write-alist-as-object*
     #:*write-ascii-encoding*
     #:*write-false-values*
     #:write-json
+    #:write-json-string
     #:*write-null-values*
     #:*write-plist-as-object*
     #:*write-true-values*))

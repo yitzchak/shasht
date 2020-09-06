@@ -300,6 +300,17 @@
 
 
 (defun read-json (&optional input-stream-or-string (eof-error-p t) eof-value single-value-p)
+  "Read a JSON value. Reading is influenced by the dynamic variables
+*read-default-true-value*, *read-default-false-value*, *read-default-null-value*,
+*read-default-array-format*, *read-default-object-format* and
+common-lisp:*read-default-float-format* which each determine the default values
+and formats used. The following arguments also control the behavior of the read.
+
+* input-stream-or-string - a stream, a string or t. If t is passed then
+  *standard-input* is used.
+* eof-error-p - if true signal eof with error, otherwise return eof-value.
+* eof-value - value used if eof-error-p is nil.
+* single-value-p - Check for trailing junk after read is complete."
   (declare (type boolean eof-error-p single-value-p))
   (prog (ch objects-p expression-stack
          (input-stream (cond
