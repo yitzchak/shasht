@@ -13,11 +13,11 @@ Common Lisp JSON reading and writing for the Kzin.
 ## Compliance
 
 Although concise the JSON specification is very vague on a number of points and
-accurate compliance by implementations is often substandard. Without a test
-suite compliance is difficult to test. The 
+thus accurate compliance by implementations is often substandard. Without 
+comprehensive tests compliance is difficult to ascertain. The 
 [JSONTestSuite](https://github.com/nst/JSONTestSuite) includes over 300 reading
 tests including those left ambiguous by the specification. The test suite of
-shasht includes all of these tests in addition to various write test. For a
+shasht includes all of these tests in addition to various write tests. For a
 comparision of the compliance of the Common Lisp implementations of JSON see
 [Compliance Comparision](https://yitzchak.github.io/shasht/).
 
