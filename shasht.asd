@@ -1,6 +1,5 @@
 (asdf:defsystem #:shasht
   :description "More JSON encoding/decoding"
-  :version "0.1"
   :author "Tarn W. Burton"
   :license "MIT"
   :depends-on
@@ -14,12 +13,16 @@
          (:file "utils")
          (:file "config")
          (:file "read")
-         (:file "write")))))
+         (:file "write"))))
+  . #+asdf3
+      (:version "0.1"
+       :homepage "https://yitzchak.github.io/shasht/"
+       :bug-tracker "https://github.com/yitzchak/shasht/issues")
+    #-asdf3 ())
 
 
 (asdf:defsystem #:shasht/test
   :description "Test suite for shasht"
-  :version "0.1"
   :author "Tarn W. Burton"
   :license "MIT"
   :depends-on
@@ -353,4 +356,10 @@
                (:static-file "y_structure_string_empty.txt")
                (:static-file "y_structure_trailing_newline.txt")
                (:static-file "y_structure_true_in_array.txt")
-               (:static-file "y_structure_whitespace_array.txt")))))))))
+               (:static-file "y_structure_whitespace_array.txt"))))))))
+  . #+asdf3
+      (:version "0.1"
+       :homepage "https://yitzchak.github.io/shasht/"
+       :bug-tracker "https://github.com/yitzchak/shasht/issues")
+    #-asdf3 ())
+               

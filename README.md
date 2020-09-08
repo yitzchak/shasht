@@ -71,6 +71,30 @@ JSON data.
   an object. Initially set to `nil`. 
 - `*write-plist-as-object*` — If true then property lists will be written as an 
   object. Initially set to `nil`.
+  
+The actual serialization of JSON data is done by the generic function
+`print-json-value` which can be specialized for additional value types.
+
+```lisp
+(print-json-value value output-stream)
+```
+
+In order to facilitate extending the serialization facilities of shasht there
+are a number of helper functions available. To aid in the printing of JSON
+strings there is the following.
+
+```lisp
+(write-json-string value output-stream)
+```
+
+In order to ease the serialization of objects and arrays there is 
+`with-json-object` and `with-json-array`. Both of these macros take an
+output stream as the first argument then enable indentation and automatic
+handling of all delimiter tokens. Inside the body of `with-json-object`
+the function `(print-json-key-value key value output-stream)` should be used
+to output a key value pair. Inside the body of `with-json-array` the function
+`(print-json-value value output-stream)` should be used to output a single
+value. Example usage can be seen in the source code.
 
 ## Compliance
 
