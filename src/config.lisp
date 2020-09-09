@@ -29,6 +29,12 @@ are :hash-table, :alist or :plist.")
 (defvar *write-null-values* '(:null)
   "Values that will be written as a null token.")
 
+(defvar *write-empty-array-values* '(:empty-array)
+  "Values that will be written as an empty array.")
+
+(defvar *write-empty-object-values* '(:empty-object)
+  "Values that will be written as an empty object.")
+
 (defvar *write-alist-as-object* nil
   "If true then assocation lists will be written as an object.")
 

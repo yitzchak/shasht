@@ -183,11 +183,13 @@ handled when calls to print-json-key-value are made."
       (write-string "false" output-stream))
     ((member value *write-null-values* :test #'eql)
       (write-string "null" output-stream))
-    ((and (null value)
-          (or *write-alist-as-object*
-              *write-plist-as-object*))
+    ((or (and (null value)
+              (or *write-alist-as-object*
+                  *write-plist-as-object*))
+         (member value *write-empty-object-values* :test #'eql))
       (write-string "{}" output-stream))
-    ((null value)
+    ((or (null value)
+         (member value *write-empty-array-values* :test #'eql))
       (write-string "[]" output-stream))
     (t
       (write-json-string (symbol-name value) output-stream)))

@@ -16,6 +16,8 @@
     #:with-json-object
     #:*write-alist-as-object*
     #:*write-ascii-encoding*
+    #:*write-empty-array-values*
+    #:*write-empty-object-values*
     #:*write-false-values*
     #:write-json
     #:write-json-string
