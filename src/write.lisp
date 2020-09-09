@@ -151,6 +151,14 @@ handled when calls to print-json-key-value are made."
 
 (defmethod print-json-value ((value list) output-stream)
   (cond
+    ((eql :object (car value))
+      (with-json-object output-stream
+        (dolist (pair (cdr value))
+          (print-json-key-value (car pair) (cdr pair) output-stream))))
+    ((eql :array (car value))
+      (with-json-array output-stream
+        (dolist (element (cdr value))
+          (print-json-value element output-stream))))
     ((and *write-alist-as-object*
           (alistp value))
       (with-json-object output-stream
