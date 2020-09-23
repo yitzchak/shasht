@@ -1,5 +1,5 @@
 (asdf:defsystem #:shasht
-  :description "More JSON encoding/decoding"
+  :description "JSON reading and writing for the Kzinti."
   :author "Tarn W. Burton"
   :license "MIT"
   :depends-on
