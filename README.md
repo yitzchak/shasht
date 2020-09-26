@@ -105,7 +105,7 @@ comprehensive tests compliance is difficult to ascertain. The
 tests including those left ambiguous by the specification. The test suite of
 shasht includes all of these tests in addition to various write tests. For a
 comparision of the compliance of the Common Lisp implementations of JSON see
-[Compliance Comparision](https://yitzchak.github.io/shasht/parsing).
+[Compliance Comparision](https://yitzchak.github.io/shasht/parsing.html).
 
 ## Benchmarks
 
