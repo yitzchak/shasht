@@ -210,7 +210,7 @@
          digit
          ch)
     (declare (type integer mantissa exponent frac-exponent)
-             (type function manitissa-accum exponent-accum)
+             (type function mantissa-accum exponent-accum)
              (type (or null integer) digit)
              (type (or null character) ch))
     (cond

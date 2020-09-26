@@ -39,7 +39,7 @@
 
 
 (defun ascii-printable-p (char-code)
-  (declare (type fixnume char-code))
+  (declare (type fixnum char-code))
   (<= 32 char-code 126))
 
 
