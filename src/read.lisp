@@ -396,3 +396,27 @@ and formats used. The following arguments also control the behavior of the read.
     (pop objects-p)
     (go read-separator)))
 
+
+(defun read-json* (&key input-stream (eof-error-p t) eof-value single-value-p
+                        (true-value t) false-value (null-value :null) (array-format :vector)
+                        (object-format :hash-table))
+  "Read a JSON value. Reading is influenced by the keyword arguments and not by the dynamic
+variables of `read-json`.
+
+* input-stream - a stream, a string or t. If t is passed then *standard-input* is used.
+* eof-error-p - if true signal eof with error, otherwise return eof-value.
+* eof-value - value used if eof-error-p is nil.
+* single-value-p - Check for trailing junk after read is complete.
+* true-value - The value to return when reading a true token.
+* false-value - The value to return when reading a false token.
+* null-value - The value to return when reading a null token.
+* array-format - The format to use when reading an array. Current supported formats are
+  :vector or :list.
+* object-format - The format to use when reading an object. Current supported formats are
+  :hash-table, :alist or :plist."
+  (let ((*read-default-true-value* true-value)
+        (*read-default-false-value* false-value)
+        (*read-default-null-value* null-value)
+        (*read-default-array-format* array-format)
+        (*read-default-object-format* object-format))
+    (read-json input-stream eof-error-p eof-value single-value-p)))

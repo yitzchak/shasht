@@ -11,6 +11,7 @@
     #:*read-default-object-format*
     #:*read-default-true-value*
     #:read-json
+    #:read-json*
     #:shasht-parse-error
     #:with-json-array
     #:with-json-object
@@ -20,6 +21,7 @@
     #:*write-empty-object-values*
     #:*write-false-values*
     #:write-json
+    #:write-json*
     #:write-json-string
     #:*write-null-values*
     #:*write-plist-as-object*

@@ -217,7 +217,7 @@ handled when calls to print-json-key-value are made."
 
 
 (defun write-json (value &optional (output-stream t))
-"Read a JSON value. Reading is influenced by the dynamic variables
+"Read a JSON value. Writing is influenced by the dynamic variables
 *write-ascii-encoding*, *write-true-values*,  *write-false-values*,
 *write-null-values*, *write-alist-as-object*,  *write-plist-as-object*,
 *indent-increment*, *indent-character* and common-lisp:*print-pretty*
@@ -235,4 +235,32 @@ The following arguments also control the behavior of the write.
                                *standard-output*
                                output-stream))))
 
+
+(defun write-json* (value &key (output-stream t) ascii-encoding (true-values* '(t :true))
+                               (false-values* '(nil :false)) (null-values* '(:null))
+                               (empty-array-values* '(:empty-array))
+                               (empty-object-values* '(:empty-object)) alist-as-object
+                               plist-as-object print-pretty (indent-increment 2)
+                               (indent-character* #\space))
+"Read a JSON value. Writing is not influenced by the dynamic variables
+of write-json.
+
+The following arguments also control the behavior of the write.
+
+* value - The value to be written.
+* output-stream - a stream or nil to return a string or t to use
+  *standard-output*.
+* ascii-encoding - If true then any non ASCII values will be encoded
+  using Unicode escape sequences.
+* true-values - Values that will be written as a true token.
+* false-values - Values that will be written as a false token.
+* null-values - Values that will be written as a null token.
+* empty-array-values - Values that will be written as an empty array.
+* empty-object-values - Values that will be written as an empty object.
+* alist-as-object - If true then assocation lists will be written as an object.
+* plist-as-object - If true then property lists will be written as an object.
+* print-pretty - Use indentation in printing.
+* indent-increment - The number of `indent-character` to use at each indention level if
+  `print-pretty` is true.
+* indent-character - The character to use when indenting objects and arrays.")
 
