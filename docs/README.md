@@ -55,9 +55,9 @@ JSON data.
 
 - `common-lisp:*print-pretty*` — If true then a simple indentation algorithm
   will be used.
-- `*indent-increment*` — The number of `*indent-character*` to use at each 
+- `*write-indent-increment*` — The number of `*write-indent-character*` to use at each 
   indention level if `*print-pretty*` is true. Initially set to `2`.
-- `*indent-character*` — The character to use when indenting objects and arrays.
+- `*write-indent-character*` — The character to use when indenting objects and arrays.
    Initially set to `#\space`.
 - `*write-ascii-encoding*` — If true then any non ASCII values will be encoded 
   using Unicode escape sequences. Initially set to `nil`.

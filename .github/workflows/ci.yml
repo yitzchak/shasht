@@ -1,0 +1,61 @@
+name: ci
+
+# Controls when the action will run. Triggers the workflow on push for any branch, and
+# pull requests to master
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+        - macos-latest
+        - ubuntu-latest
+
+    # run the job on every combination of "os" above
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    # tell git not to convert line endings
+    - name: Install Windows dependencies
+      if: matrix.os == 'windows-latest'
+      run: |
+        git config --global core.autocrlf false
+
+    - name: Install Ubuntu dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get install sbcl
+
+    - name: Install MacOS dependencies
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install clozure-cl sbcl
+
+   - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Download Quicklisp and setup source registry
+      run: |
+        curl -kLO https://beta.quicklisp.org/quicklisp.lisp
+        mkdir -p $HOME/.config/common-lisp
+        echo "(:source-registry (:tree (\"$PWD\")) :inherit-configuration)" >$HOME/.config/common-lisp/source-registry.conf
+
+    - name: Run SBCL tests
+      run: |
+        sbcl --non-interactive --eval "(asdf:test-system :shasht)"
+
+    - name: Run CCL tests
+      if: matrix.os == 'macos-latest'
+      run: |
+        ccl64 --batch --eval "(asdf:test-system :shasht)"
+
+        
