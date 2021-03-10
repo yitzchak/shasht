@@ -44,6 +44,3 @@ are :hash-table, :alist or :plist.")
 (defvar *write-indent-string* "  "
   "The string to use when indenting objects and arrays.")
 
-(defvar *write-pretty* nil
-  "Whether to use indentation and spaces in JSON serialization.")
-

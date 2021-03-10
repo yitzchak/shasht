@@ -422,3 +422,4 @@ variables of `read-json`.
         (*read-default-object-format* object-format)
         (*read-default-float-format* float-format))
     (read-json stream eof-error eof-value single-value)))
+

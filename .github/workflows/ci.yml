@@ -49,6 +49,15 @@ jobs:
         mkdir -p $HOME/.config/common-lisp
         echo "(:source-registry (:tree (\"$PWD\")) :inherit-configuration)" >$HOME/.config/common-lisp/source-registry.conf
 
+    - name: Install Quicklisp for SBCL
+      run: |
+        sbcl --non-interactive --load scripts/install.lisp
+
+    - name: Install Quicklisp for CCL
+      if: matrix.os == 'macos-latest'
+      run: |
+        ccl64 --batch --load scripts/install.lisp
+
     - name: Run SBCL tests
       run: |
         sbcl --non-interactive --eval "(asdf:test-system :shasht)"

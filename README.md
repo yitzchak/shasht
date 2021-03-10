@@ -1,6 +1,6 @@
 # shasht
 
-[![Build Status](https://travis-ci.com/yitzchak/shasht.svg?branch=master)](https://travis-ci.com/yitzchak/shasht)
+[![Build Status][ci-badge]][ci]
 
 Common Lisp JSON reading and writing for the Kzinti.
 
@@ -180,4 +180,9 @@ json-streams ██████████████████████�
        yason ███████████████████████████████████████████████████████████▉
 
 ```
+
+<!--refs-->
+
+[ci]: https://github.com/yitzchak/shasht/actions/
+[ci-badge]: https://github.com/yitzchak/shasht/workflows/ci/badge.svg
 
