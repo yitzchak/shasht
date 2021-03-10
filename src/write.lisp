@@ -1,7 +1,8 @@
 (in-package :shasht)
 
 
-(declaim #+(or)(optimize (speed 3) (safety 0))
+(declaim (optimize (speed 3) (safety 0))
+         (inline make-newline-strine)
          (ftype (function (t t stream) t) print-json-key-value)
          (ftype (function (string stream) string) write-json-string))
 
@@ -53,27 +54,20 @@
   value)
 
 
+(defun make-newline-string ()
+  (when *print-pretty*
+    (apply 'concatenate 'string (list #\space)
+           (make-list *write-indent-level* :initial-element *write-indent-string*))))
+
+
 (defmacro with-json-array (output-stream &body body)
   "Enable JSON array writing for body. Array open/close and commas will be automatically
 handled when calls to print-json-value are made."
   `(let* ((*terminator* "]")
-          (*next-terminator* (if *print-pretty*
-                               (concatenate 'string
-                                            (string #\newline)
-                                            (make-string *write-indent-level* :initial-element *write-indent-character*)
-                                            "]")
-                               "]"))
-          (*write-indent-level* (+ *write-indent-level* *write-indent-increment*))
-          (*delimiter* (when *print-pretty*
-                         (concatenate 'string
-                                      (string #\newline)
-                                      (make-string *write-indent-level* :initial-element *write-indent-character*))))
-          (*next-delimiter* (if *print-pretty*
-                              (concatenate 'string
-                                           ","
-                                           (string #\newline)
-                                           (make-string *write-indent-level* :initial-element *write-indent-character*))
-                              ",")))
+          (*delimiter* (make-newline-string))
+          (*next-terminator* (concatenate 'string *delimiter* "]"))
+          (*write-indent-level* (1+ *write-indent-level*))
+          (*next-delimiter* (concatenate 'string "," *delimiter*)))
      (declare (type (or null string) *delimiter* *next-delimiter*))
      (write-char #\[ ,output-stream)
      (locally ,@body)
@@ -84,23 +78,10 @@ handled when calls to print-json-value are made."
   "Enable JSON object writing for body. Object open/close and commas will be automatically
 handled when calls to print-json-key-value are made."
   `(let* ((*terminator* "}")
-          (*next-terminator* (if *print-pretty*
-                               (concatenate 'string
-                                            (string #\newline)
-                                            (make-string *write-indent-level* :initial-element *write-indent-character*)
-                                            "}")
-                               "}"))
-          (*write-indent-level* (+ *write-indent-level* *write-indent-increment*))
-          (*delimiter* (when *print-pretty*
-                         (concatenate 'string
-                                      (string #\newline)
-                                      (make-string *write-indent-level* :initial-element *write-indent-character*))))
-          (*next-delimiter* (if *print-pretty*
-                              (concatenate 'string
-                                           ","
-                                           (string #\newline)
-                                           (make-string *write-indent-level* :initial-element *write-indent-character*))
-                              ",")))
+          (*delimiter* (make-newline-string))
+          (*next-terminator* (concatenate 'string *delimiter* "}"))
+          (*write-indent-level* (1+ *write-indent-level*))
+          (*next-delimiter* (concatenate 'string "," *delimiter*)))
      (declare (type (or null string) *delimiter* *next-delimiter*))
      (write-char #\{ ,output-stream)
      (locally ,@body)
@@ -217,11 +198,10 @@ handled when calls to print-json-key-value are made."
 
 
 (defun write-json (value &optional (output-stream t))
-"Read a JSON value. Writing is influenced by the dynamic variables
+"Write a JSON value. Writing is influenced by the dynamic variables
 *write-ascii-encoding*, *write-true-values*,  *write-false-values*,
 *write-null-values*, *write-alist-as-object*,  *write-plist-as-object*,
-*write-indent-increment*, *write-indent-character* and common-lisp:*print-pretty*
-which simple indentation of arrays and objects.
+*write-indent-string* and common-lisp:*print-pretty*.
 
 The following arguments also control the behavior of the write.
 
@@ -236,19 +216,18 @@ The following arguments also control the behavior of the write.
                                output-stream))))
 
 
-(defun write-json* (value &key (output-stream t) ascii-encoding (true-values '(t :true))
+(defun write-json* (value &key (stream t) ascii-encoding (true-values '(t :true))
                                (false-values '(nil :false)) (null-values '(:null))
                                (empty-array-values '(:empty-array))
                                (empty-object-values '(:empty-object)) alist-as-object
-                               plist-as-object print-pretty (indent-increment 2)
-                               (indent-character #\space))
-"Read a JSON value. Writing is not influenced by the dynamic variables
+                               plist-as-object pretty (indent-string "  "))
+"Write a JSON value. Writing is not influenced by the dynamic variables
 of write-json.
 
 The following arguments also control the behavior of the write.
 
 * value - The value to be written.
-* output-stream - a stream or nil to return a string or t to use
+* stream - a stream or nil to return a string or t to use
   *standard-output*.
 * ascii-encoding - If true then any non ASCII values will be encoded
   using Unicode escape sequences.
@@ -259,10 +238,8 @@ The following arguments also control the behavior of the write.
 * empty-object-values - Values that will be written as an empty object.
 * alist-as-object - If true then assocation lists will be written as an object.
 * plist-as-object - If true then property lists will be written as an object.
-* print-pretty - Use indentation in printing.
-* indent-increment - The number of `indent-character` to use at each indention level if
-  `print-pretty` is true.
-* indent-character - The character to use when indenting objects and arrays."
+* pretty - Use indentation in printing.
+* indent-string - The string to use when indenting objects and arrays."
   (let ((*write-ascii-encoding* ascii-encoding)
         (*write-true-values* true-values)
         (*write-false-values* false-values)
@@ -271,6 +248,6 @@ The following arguments also control the behavior of the write.
         (*write-empty-object-values* empty-object-values)
         (*write-alist-as-object* alist-as-object)
         (*write-plist-as-object* plist-as-object)
-        (*write-indent-increment* indent-increment)
-        (*write-indent-character* indent-character))
-    (write-json value output-stream)))
+        (*write-indent-string* indent-string)
+        (*print-pretty* pretty))
+    (write-json value stream)))

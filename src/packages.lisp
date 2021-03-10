@@ -1,8 +1,6 @@
 (defpackage #:shasht
   (:use #:common-lisp)
   (:export
-    #:*write-indent-character*
-    #:*write-indent-increment*
     #:print-json-key-value
     #:print-json-value
     #:*read-default-array-format*
@@ -20,6 +18,7 @@
     #:*write-empty-array-values*
     #:*write-empty-object-values*
     #:*write-false-values*
+    #:*write-indent-string*
     #:write-json
     #:write-json*
     #:write-json-string

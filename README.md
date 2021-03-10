@@ -36,6 +36,22 @@ data.
 - `*read-default-object-format*` — The default format to use when reading an
   object. Current supported formats are `:hash-table`, `:alist` or `:plist`.
   Initially set to `:hash-table`.
+  
+There is also a keyword variant `read-json*` which will set the various dynamic
+variables from supplied keywords.
+
+```lisp
+(read-json* :stream nil
+            :eof-error t
+            :eof-value nil 
+            :single-value nil
+            :true-value t 
+            :false-value nil 
+            :null-value :null
+            :array-format :vector 
+            :object-format :hash-table
+            :float-format 'single-float))
+```
 
 ## Writing
 
@@ -55,9 +71,7 @@ JSON data.
 
 - `common-lisp:*print-pretty*` — If true then a simple indentation algorithm
   will be used.
-- `*write-indent-increment*` — The number of `*write-indent-character*` to use at each 
-  indention level if `*print-pretty*` is true. Initially set to `2`.
-- `*write-indent-character*` — The character to use when indenting objects and arrays.
+- `*write-indent-string*` — The string to use when indenting objects and arrays.
    Initially set to `#\space`.
 - `*write-ascii-encoding*` — If true then any non ASCII values will be encoded 
   using Unicode escape sequences. Initially set to `nil`.
@@ -77,6 +91,23 @@ The actual serialization of JSON data is done by the generic function
 
 ```lisp
 (print-json-value value output-stream)
+```
+
+There is also a keyword variant `write-json*` which will set the various dynamic
+variables from supplied keywords.
+
+```lisp
+(write-json* value :stream t 
+                   :ascii-encoding nil 
+                   :true-values '(t :true)
+                   :false-values '(nil :false) 
+                   :null-values '(:null)
+                   :empty-array-values '(:empty-array)) 
+                   :empty-object-values '(:empty-object)) 
+                   :alist-as-object nil 
+                   :plist-as-object nil
+                   :pretty nil 
+                   :indent-string "  ")
 ```
 
 In order to facilitate extending the serialization facilities of shasht there
@@ -114,37 +145,39 @@ results are typical.
 
 ```
                                 JSON Read Times                                 
-             0                     6.8727204e-6                     1.3745441e-5
+             0                     7.002169e-6                      1.4004338e-5
              ˫--------------------------------+--------------------------------˧
-     cl-json ███████████████████████████████████▋
-    jonathan ████████▍
+     cl-json ███████████████████████████████████▉
+    jonathan ████████▊
 json-streams ███████████████████████████████████████████████████████████████████
-       jsown ████████▉
-      shasht ██████████████▎
-     st-json ██████████████████████████████████▎
-       yason ████████████████████████████████████████▌
+       jsown █████████▋
+      shasht █████████████▏
+     st-json █████████████████████████████████▊
+       yason ████████████████████████████████████████▉
 
 
                                 JSON Write Times                                
-             0                     6.0235893e-6                     1.2047179e-5
+             0                    6.2018808e-6                     1.24037615e-5
              ˫--------------------------------+--------------------------------˧
      cl-json ███████████████████████████████████████████████████████████████████
-    jonathan █████████████████████████████████▊
-json-streams ██████████████████████████████▎
-       jsown ███████████████████████████████████████▏
-      shasht ██████████▊
+    jonathan ████████████████████████████████████▍
+json-streams ███████████████████████████████▎
+       jsown ████████████████████████████████████████▉
+      shasht ███████████▍
      st-json ███████▋
-       yason ██████████████████████████████████▎
+       yason ████████████████████████████████████▏
 
 
                              JSON Read/Write Times                              
-             0                    1.11709105e-5                     2.2341821e-5
+             0                     1.1348141e-5                     2.2696282e-5
              ˫--------------------------------+--------------------------------˧
      cl-json ███████████████████████████████████████████████████████████████████
-    jonathan ██████████████████████████████████▉
-json-streams ███████████████████████████████████████████████████████████████▉
-       jsown ████████████████████████████▋
-      shasht ███████████████████████▍
-     st-json ███████████████████████████▊
-       yason ████████████████████████████████████████████████████████▌
+    jonathan █████████████████████████████████████▍
+json-streams ██████████████████████████████████████████████████████████████▉
+       jsown ██████████████████████████████▎
+      shasht ██████████████████████▏
+     st-json ███████████████████████████▋
+       yason ███████████████████████████████████████████████████████████▉
+
 ```
+

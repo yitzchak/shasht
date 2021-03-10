@@ -41,10 +41,9 @@ are :hash-table, :alist or :plist.")
 (defvar *write-plist-as-object* nil
   "If true then property lists will be written as an object.")
 
-(defvar *write-indent-increment* 2
-  "The number of *write-indent-character* to use at each indention level if *print-pretty*
-is true.")
+(defvar *write-indent-string* "  "
+  "The string to use when indenting objects and arrays.")
 
-(defvar *write-indent-character* #\space
-  "The character to use when indenting objects and arrays.")
+(defvar *write-pretty* nil
+  "Whether to use indentation and spaces in JSON serialization.")
 

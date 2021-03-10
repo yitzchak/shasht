@@ -1,8 +1,8 @@
 (in-package :shasht)
 
 
-(declaim #+(or)(inline skip-whitespace expect-char)
-         #+(or)(optimize (speed 3) (safety 0))
+(declaim (inline skip-whitespace expect-char)
+         (optimize (speed 3) (safety 0))
          (ftype (function (fixnum) boolean) high-surrogate-p)
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream boolean) string) read-json-string)
@@ -397,13 +397,13 @@ and formats used. The following arguments also control the behavior of the read.
     (go read-separator)))
 
 
-(defun read-json* (&key input-stream (eof-error t) eof-value single-value
+(defun read-json* (&key stream (eof-error t) eof-value single-value
                         (true-value t) false-value (null-value :null) (array-format :vector)
                         (object-format :hash-table) (float-format 'single-float))
   "Read a JSON value. Reading is influenced by the keyword arguments and not by the dynamic
 variables of `read-json`.
 
-* input-stream - a stream, a string or t. If t is passed then *standard-input* is used.
+* stream - a stream, a string or t. If t is passed then *standard-input* is used.
 * eof-error - if true signal eof with error, otherwise return eof-value.
 * eof-value - value used if eof-error-p is nil.
 * single-value - Check for trailing junk after read is complete.
@@ -421,4 +421,4 @@ variables of `read-json`.
         (*read-default-array-format* array-format)
         (*read-default-object-format* object-format)
         (*read-default-float-format* float-format))
-    (read-json input-stream eof-error-p eof-value single-value-p)))
+    (read-json stream eof-error eof-value single-value)))
