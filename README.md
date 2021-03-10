@@ -50,7 +50,7 @@ variables from supplied keywords.
             :null-value :null
             :array-format :vector 
             :object-format :hash-table
-            :float-format 'single-float))
+            :float-format 'single-float)
 ```
 
 ## Writing
@@ -102,8 +102,8 @@ variables from supplied keywords.
                    :true-values '(t :true)
                    :false-values '(nil :false) 
                    :null-values '(:null)
-                   :empty-array-values '(:empty-array)) 
-                   :empty-object-values '(:empty-object)) 
+                   :empty-array-values '(:empty-array)
+                   :empty-object-values '(:empty-object) 
                    :alist-as-object nil 
                    :plist-as-object nil
                    :pretty nil 
