@@ -1,9 +1,8 @@
 (in-package :shasht)
 
 
-(declaim (inline skip-whitespace expect-char)
-         (optimize (speed 3) (safety 0))
-         (ftype (function (fixnum) boolean) high-surrogate-p)
+(declaim (inline skip-whitespace)
+         #+(or)(optimize (speed 3) (safety 0))
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream boolean) string) read-json-string)
          (ftype (function (stream) number) read-json-number)
@@ -136,11 +135,10 @@
   (unless skip-quote
     (expect-char input-stream #\" t t))
   (prog ((result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character))
-         (hi 0)
-         (lo 0)
+         (codepoint 0)
          ch)
     (declare (type (or null character) ch)
-             (type fixnum hi lo))
+             (type fixnum codepoint))
    read-next
     (cond
       ((or (null (setf ch (read-char input-stream nil)))
@@ -183,19 +181,15 @@
         (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
 
     (cond
-      ((high-surrogate-p (setf hi (read-encoded-char input-stream)))
-        #+cmucl (vector-push-extend (code-char hi) result) ; CMUCL is UTF-16
+      ((typep (setf codepoint (read-encoded-char input-stream)) 'high-surrogate)
+        #+cmucl (vector-push-extend (code-char codepoint) result) ; CMUCL is UTF-16
         (expect-char input-stream #\\ nil t)
         (expect-char input-stream #\u nil t)
-        (setf lo (read-encoded-char input-stream))
-        (vector-push-extend
-          (code-char #+cmucl lo
-                     #-cmucl (+ #x10000
-                                (- lo #xdc00)
-                                (* #x400 (- hi #xd800))))
-          result))
+        (vector-push-extend (code-char #+cmucl (read-encoded-char input-stream)
+                                       #-cmucl (surrogates-to-codepoint codepoint (read-encoded-char input-stream)))
+                            result))
       (t
-        (vector-push-extend (code-char hi) result)))
+        (vector-push-extend (code-char codepoint) result)))
 
     (go read-next)))
 

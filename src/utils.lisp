@@ -8,6 +8,8 @@
                 ascii-printable-p
                 supplementary-plane-p
                 high-surrogate-p)
+         (ftype (function (high-surrogate low-surrogate) fixnum)
+                surrogates-to-codepoint)
          (ftype (function (character) boolean)
                 control-char-p
                 integer-char-p)
@@ -52,4 +54,17 @@
   (<= #xd800 code #xdfff))
 
 
+(deftype high-surrogate ()
+  '(integer #xd800 #xdbff))
 
+
+(deftype low-surrogate ()
+  '(integer #xdc00 #xdfff))
+
+
+(defun surrogates-to-codepoint (high-surrogate low-surrogate)
+  (declare (type high-surrogate high-surrogate)
+           (type low-surrogate low-surrogate))
+  (+ #x10000 (dpb (ldb (byte 10 0) high-surrogate)
+                  (byte 10 10)
+                  (ldb (byte 10 0) low-surrogate))))

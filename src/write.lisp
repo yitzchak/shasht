@@ -1,7 +1,7 @@
 (in-package :shasht)
 
 
-(declaim (optimize (speed 3) (safety 0))
+(declaim #+(or)(optimize (speed 3) (safety 0))
          (inline make-newline-strine)
          (ftype (function (t t stream) t) print-json-key-value)
          (ftype (function (string stream) string) write-json-string))
