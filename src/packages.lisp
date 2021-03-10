@@ -1,8 +1,6 @@
 (defpackage #:shasht
   (:use #:common-lisp)
   (:export
-    #:*indent-character*
-    #:*indent-increment*
     #:print-json-key-value
     #:print-json-value
     #:*read-default-array-format*
@@ -11,6 +9,7 @@
     #:*read-default-object-format*
     #:*read-default-true-value*
     #:read-json
+    #:read-json*
     #:shasht-parse-error
     #:with-json-array
     #:with-json-object
@@ -19,7 +18,9 @@
     #:*write-empty-array-values*
     #:*write-empty-object-values*
     #:*write-false-values*
+    #:*write-indent-string*
     #:write-json
+    #:write-json*
     #:write-json-string
     #:*write-null-values*
     #:*write-plist-as-object*

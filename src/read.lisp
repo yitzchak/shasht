@@ -1,9 +1,8 @@
 (in-package :shasht)
 
 
-(declaim #+(or)(inline skip-whitespace expect-char)
+(declaim (inline skip-whitespace)
          #+(or)(optimize (speed 3) (safety 0))
-         (ftype (function (fixnum) boolean) high-surrogate-p)
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream boolean) string) read-json-string)
          (ftype (function (stream) number) read-json-number)
@@ -136,11 +135,10 @@
   (unless skip-quote
     (expect-char input-stream #\" t t))
   (prog ((result (make-array 32 :fill-pointer 0 :adjustable t :element-type 'character))
-         (hi 0)
-         (lo 0)
+         (codepoint 0)
          ch)
     (declare (type (or null character) ch)
-             (type fixnum hi lo))
+             (type fixnum codepoint))
    read-next
     (cond
       ((or (null (setf ch (read-char input-stream nil)))
@@ -183,19 +181,15 @@
         (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
 
     (cond
-      ((high-surrogate-p (setf hi (read-encoded-char input-stream)))
-        #+cmucl (vector-push-extend (code-char hi) result) ; CMUCL is UTF-16
+      ((typep (setf codepoint (read-encoded-char input-stream)) 'high-surrogate)
+        #+cmucl (vector-push-extend (code-char codepoint) result) ; CMUCL is UTF-16
         (expect-char input-stream #\\ nil t)
         (expect-char input-stream #\u nil t)
-        (setf lo (read-encoded-char input-stream))
-        (vector-push-extend
-          (code-char #+cmucl lo
-                     #-cmucl (+ #x10000
-                                (- lo #xdc00)
-                                (* #x400 (- hi #xd800))))
-          result))
+        (vector-push-extend (code-char #+cmucl (read-encoded-char input-stream)
+                                       #-cmucl (surrogates-to-codepoint codepoint (read-encoded-char input-stream)))
+                            result))
       (t
-        (vector-push-extend (code-char hi) result)))
+        (vector-push-extend (code-char codepoint) result)))
 
     (go read-next)))
 
@@ -395,4 +389,31 @@ and formats used. The following arguments also control the behavior of the read.
     ; We just finished an object or an array so look for more separators.
     (pop objects-p)
     (go read-separator)))
+
+
+(defun read-json* (&key stream (eof-error t) eof-value single-value
+                        (true-value t) false-value (null-value :null) (array-format :vector)
+                        (object-format :hash-table) (float-format 'single-float))
+  "Read a JSON value. Reading is influenced by the keyword arguments and not by the dynamic
+variables of `read-json`.
+
+* stream - a stream, a string or t. If t is passed then *standard-input* is used.
+* eof-error - if true signal eof with error, otherwise return eof-value.
+* eof-value - value used if eof-error-p is nil.
+* single-value - Check for trailing junk after read is complete.
+* true-value - The value to return when reading a true token.
+* false-value - The value to return when reading a false token.
+* null-value - The value to return when reading a null token.
+* array-format - The format to use when reading an array. Current supported formats are
+  :vector or :list.
+* object-format - The format to use when reading an object. Current supported formats are
+  :hash-table, :alist or :plist.
+* float-format - The format of floating point values."
+  (let ((*read-default-true-value* true-value)
+        (*read-default-false-value* false-value)
+        (*read-default-null-value* null-value)
+        (*read-default-array-format* array-format)
+        (*read-default-object-format* object-format)
+        (*read-default-float-format* float-format))
+    (read-json stream eof-error eof-value single-value)))
 
