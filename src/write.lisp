@@ -56,7 +56,7 @@
 
 (defun make-newline-string ()
   (when *print-pretty*
-    (apply 'concatenate 'string (list #\space)
+    (apply 'concatenate 'string (list #\newline)
            (make-list *write-indent-level* :initial-element *write-indent-string*))))
 
 
@@ -64,9 +64,9 @@
   "Enable JSON array writing for body. Array open/close and commas will be automatically
 handled when calls to print-json-value are made."
   `(let* ((*terminator* "]")
-          (*delimiter* (make-newline-string))
-          (*next-terminator* (concatenate 'string *delimiter* "]"))
+          (*next-terminator* (concatenate 'string (make-newline-string) "]"))
           (*write-indent-level* (1+ *write-indent-level*))
+          (*delimiter* (make-newline-string))
           (*next-delimiter* (concatenate 'string "," *delimiter*)))
      (declare (type (or null string) *delimiter* *next-delimiter*))
      (write-char #\[ ,output-stream)
@@ -78,9 +78,9 @@ handled when calls to print-json-value are made."
   "Enable JSON object writing for body. Object open/close and commas will be automatically
 handled when calls to print-json-key-value are made."
   `(let* ((*terminator* "}")
-          (*delimiter* (make-newline-string))
-          (*next-terminator* (concatenate 'string *delimiter* "}"))
+          (*next-terminator* (concatenate 'string (make-newline-string) "}"))
           (*write-indent-level* (1+ *write-indent-level*))
+          (*delimiter* (make-newline-string))
           (*next-delimiter* (concatenate 'string "," *delimiter*)))
      (declare (type (or null string) *delimiter* *next-delimiter*))
      (write-char #\{ ,output-stream)
