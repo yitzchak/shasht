@@ -1,6 +1,7 @@
 (defpackage #:shasht
   (:use #:common-lisp)
   (:export
+    #:make-object
     #:print-json-key-value
     #:print-json-value
     #:*read-default-array-format*

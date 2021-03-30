@@ -3,7 +3,7 @@
   :author "Tarn W. Burton"
   :license "MIT"
   :depends-on
-    (:alexandria)
+    (:trivial-do)
   :in-order-to ((asdf:test-op (asdf:test-op #:shasht/test)))
   :components
     ((:module src

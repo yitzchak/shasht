@@ -144,10 +144,14 @@ handled when calls to print-json-key-value are made."
 
 (defmethod print-json-value ((value list) output-stream)
   (cond
-    ((eql :object (car value))
+    ((eql :object-alist (car value))
       (with-json-object output-stream
-        (dolist (pair (cdr value))
-          (print-json-key-value (car pair) (cdr pair) output-stream))))
+        (trivial-do:doalist (k v (cdr value))
+          (print-json-key-value k v output-stream))))
+    ((eql :object-plist (car value))
+      (with-json-object output-stream
+        (trivial-do:doplist (k v (cdr value))
+          (print-json-key-value k v output-stream))))
     ((eql :array (car value))
       (with-json-array output-stream
         (dolist (element (cdr value))
@@ -155,12 +159,12 @@ handled when calls to print-json-key-value are made."
     ((and *write-alist-as-object*
           (alistp value))
       (with-json-object output-stream
-        (dolist (pair value)
-          (print-json-key-value (car pair) (cdr pair) output-stream))))
+        (trivial-do:doalist (k v value)
+          (print-json-key-value k v output-stream))))
     ((and *write-plist-as-object*
           (plistp value))
       (with-json-object output-stream
-        (alexandria:doplist (k v value)
+        (trivial-do:doplist (k v value)
           (print-json-key-value k v output-stream))))
     (t
       (with-json-array output-stream

@@ -68,3 +68,11 @@
   (+ #x10000 (dpb (ldb (byte 10 0) high-surrogate)
                   (byte 10 10)
                   (ldb (byte 10 0) low-surrogate))))
+
+
+(defun make-object (&rest args)
+  "Create a hash table based on args (in plist format) and a test of equal."
+  (let ((result (make-hash-table :test #'equal)))
+    (trivial-do:doplist (key value args result)
+      (setf (gethash key result) value))))
+  
