@@ -12,6 +12,7 @@
     #:read-json
     #:read-json*
     #:shasht-parse-error
+    #:*symbol-name-function*
     #:with-json-array
     #:with-json-object
     #:*write-alist-as-object*

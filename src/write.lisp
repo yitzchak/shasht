@@ -3,7 +3,7 @@
 
 (declaim #+(or)(optimize (speed 3) (safety 0))
          (inline make-newline-strine)
-         (ftype (function (t t stream) t) print-json-key-value)
+         (ftype (function (t t t stream) t) print-json-key-value)
          (ftype (function (string stream) string) write-json-string))
 
 
@@ -92,13 +92,15 @@ handled when calls to print-json-key-value are made."
   (:documentation "Print a JSON value to output-stream. Used by write-json to dispatch based on type."))
 
 
-(defun print-json-key-value (key value output-stream)
-  "Print a JSON key value. Must be used inside of with-json-object."
-  (print-json-value key output-stream)
-  (let ((*delimiter* (if *print-pretty*
-                       ": "
-                       ":")))
-    (print-json-value value output-stream)))
+(defgeneric print-json-key-value (object key value output-stream)
+  (:documentation "Print a JSON key value. Must be used inside of with-json-object.")
+  (:method (object key value output-stream)
+    (declare (ignore object))
+    (print-json-value key output-stream)
+    (let ((*delimiter* (if *print-pretty*
+                         ": "
+                         ":")))
+      (print-json-value value output-stream))))
 
 
 (defmethod print-json-value :before (value output-stream)
@@ -137,7 +139,7 @@ handled when calls to print-json-key-value are made."
 (defmethod print-json-value ((value hash-table) output-stream)
   (with-json-object output-stream
     (maphash (lambda (key val)
-               (print-json-key-value key val output-stream))
+               (print-json-key-value value key val output-stream))
              value))
   value)
 
@@ -147,11 +149,11 @@ handled when calls to print-json-key-value are made."
     ((eql :object-alist (car value))
       (with-json-object output-stream
         (trivial-do:doalist (k v (cdr value))
-          (print-json-key-value k v output-stream))))
+          (print-json-key-value value k v output-stream))))
     ((eql :object-plist (car value))
       (with-json-object output-stream
         (trivial-do:doplist (k v (cdr value))
-          (print-json-key-value k v output-stream))))
+          (print-json-key-value value k v output-stream))))
     ((eql :array (car value))
       (with-json-array output-stream
         (dolist (element (cdr value))
@@ -160,12 +162,12 @@ handled when calls to print-json-key-value are made."
           (alistp value))
       (with-json-object output-stream
         (trivial-do:doalist (k v value)
-          (print-json-key-value k v output-stream))))
+          (print-json-key-value value k v output-stream))))
     ((and *write-plist-as-object*
           (plistp value))
       (with-json-object output-stream
         (trivial-do:doplist (k v value)
-          (print-json-key-value k v output-stream))))
+          (print-json-key-value value k v output-stream))))
     (t
       (with-json-array output-stream
         (dolist (element value)
@@ -197,8 +199,48 @@ handled when calls to print-json-key-value are made."
          (member value *write-empty-array-values* :test #'eql))
       (write-string "[]" output-stream))
     (t
-      (write-json-string (symbol-name value) output-stream)))
+      (write-json-string (funcall *symbol-name-function* value)
+                         output-stream)))
   value)
+
+
+(defmethod print-json-value ((value pathname) output-stream)
+  (write-string (namestring value) output-stream))
+
+
+(defun print-json-mop (value output-stream)
+  (with-json-object output-stream
+    (dolist (def (closer-mop:class-slots (class-of value)) value)
+      (let ((slot-name (closer-mop:slot-definition-name def)))
+        (when (slot-boundp value slot-name)
+          (let* ((slot-value (slot-value value slot-name))
+                 (slot-type (closer-mop:slot-definition-type def))
+                 (list-type-p (subtypep 'list slot-type))
+                 (null-type-p (subtypep 'null slot-type))
+                 (boolean-type-p (subtypep 'boolean slot-type)))
+            (print-json-key-value value
+                                  slot-name
+                                  (cond
+                                    (slot-value
+                                      slot-value)
+                                    ((and null-type-p
+                                          (not list-type-p)
+                                          (not boolean-type-p))
+                                      :null)
+                                    ((and list-type-p
+                                          (not boolean-type-p))
+                                      :empty-array)
+                                    (t
+                                      :false))
+                                  output-stream)))))))
+
+
+(defmethod print-json-value ((value standard-object) output-stream)
+  (print-json-mop value output-stream))
+
+
+(defmethod print-json-value ((value structure-object) output-stream)
+  (print-json-mop value output-stream))
 
 
 (defun write-json (value &optional (output-stream t))
