@@ -2,6 +2,7 @@
   (:use #:common-lisp)
   (:export
     #:make-object
+    #:print-json-delimiter
     #:print-json-key-value
     #:print-json-value
     #:*read-default-array-format*
@@ -15,6 +16,7 @@
     #:*symbol-name-function*
     #:with-json-array
     #:with-json-object
+    #:with-json-key
     #:*write-alist-as-object*
     #:*write-ascii-encoding*
     #:*write-empty-array-values*

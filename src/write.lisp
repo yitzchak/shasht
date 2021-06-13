@@ -92,6 +92,15 @@ handled when calls to print-json-key-value are made."
   (:documentation "Print a JSON value to output-stream. Used by write-json to dispatch based on type."))
 
 
+(defmacro with-json-key ((key output-stream) &body body)
+  `(progn
+     (print-json-value ,key ,output-stream)
+     (let ((*delimiter* (if *print-pretty*
+                          ": "
+                          ":")))
+       ,@body)))
+
+
 (defgeneric print-json-key-value (object key value output-stream)
   (:documentation "Print a JSON key value. Must be used inside of with-json-object.")
   (:method (object key value output-stream)
@@ -103,12 +112,16 @@ handled when calls to print-json-key-value are made."
       (print-json-value value output-stream))))
 
 
-(defmethod print-json-value :before (value output-stream)
-  (declare (ignore value))
+(defun print-json-delimiter (output-stream)
   (when *delimiter*
     (write-string *delimiter* output-stream))
   (setf *delimiter* *next-delimiter*)
   (setf *terminator* *next-terminator*))
+
+
+(defmethod print-json-value :before (value output-stream)
+  (declare (ignore value))
+  (print-json-delimiter output-stream))
 
 
 (defmethod print-json-value ((value number) output-stream)
