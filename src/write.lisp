@@ -218,7 +218,7 @@ handled when calls to print-json-key-value are made."
 
 
 (defmethod print-json-value ((value pathname) output-stream)
-  (write-string (namestring value) output-stream))
+  (write-json-string (namestring value) output-stream))
 
 
 (defun print-json-mop (value output-stream)
