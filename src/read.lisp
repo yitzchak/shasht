@@ -328,7 +328,7 @@ and formats used. The following arguments also control the behavior of the read.
       ((null ch)
         (when eof-error-p
           (error 'end-of-file :stream input-stream))
-        (push eof-value expression-stack))
+        (push (make-reader-state :value eof-value) expression-stack))
       ((char= #\{ ch)
         (object-begin expression-stack)
         (cond
