@@ -16,7 +16,7 @@
 
 (define-write-test "Write :null as null"
   :null
-  "null2")
+  "null")
 
 
 (define-write-test "Write :true as true"
