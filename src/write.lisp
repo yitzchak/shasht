@@ -269,12 +269,16 @@ The following arguments also control the behavior of the write.
 * value - The value to be written.
 * output-stream - a stream or nil to return a string or t to use
   *standard-output*."
-  (if (null output-stream)
-    (with-output-to-string (output-stream)
-      (print-json-value value output-stream))
-    (print-json-value value (if (eql t output-stream)
-                               *standard-output*
-                               output-stream))))
+  (cond ((null output-stream)
+         (with-output-to-string (output-stream)
+           (print-json-value value output-stream)))
+        ((eq t output-stream)
+         (print-json-value value *standard-output* output-stream))
+        ((and (streamp output-stream)
+              (output-stream-p output-stream))
+         (print-json-value value output-stream))
+        (t
+         (error 'type-error :datum output-stream :expected-type '(or null t stream)))))
 
 
 (defun write-json* (value &key (stream t) ascii-encoding (true-values '(t :true))

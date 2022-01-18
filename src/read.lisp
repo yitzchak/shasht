@@ -293,7 +293,7 @@
     (return (* mantissa (expt (coerce 10 *read-default-float-format*) (+ frac-exponent exponent))))))
 
 
-(defun read-json (&optional input-stream-or-string (eof-error-p t) eof-value single-value-p)
+(defun read-json (&optional (input-stream-or-string t) (eof-error-p t) eof-value single-value-p)
   "Read a JSON value. Reading is influenced by the dynamic variables
 *read-default-true-value*, *read-default-false-value*, *read-default-null-value*,
 *read-default-array-format*, *read-default-object-format* and
@@ -308,12 +308,16 @@ and formats used. The following arguments also control the behavior of the read.
   (declare (type boolean eof-error-p single-value-p))
   (prog (ch objects-p expression-stack
          (input-stream (cond
-                          ((null input-stream-or-string)
+                          ((eq t input-stream-or-string)
                              *standard-input*)
                           ((stringp input-stream-or-string)
                             (make-string-input-stream input-stream-or-string))
+                          ((and (streamp input-stream-or-string)
+                                (input-stream-p input-stream-or-string))
+                            input-stream-or-string)
                           (t
-                            input-stream-or-string))))
+                           (error 'type-error :datum input-stream-or-string
+                                              :expected-type '(or t string stream))))))
     (declare (type (or null character) ch))
    read-next
     ; If we are in an object then read the key first.
