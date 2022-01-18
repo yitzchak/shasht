@@ -222,6 +222,11 @@ handled when calls to print-json-key-value are made."
   value)
 
 
+(defmethod print-json-value ((value character) output-stream)
+  (write-json-string (string value) output-stream)
+  value)
+
+
 (defun print-json-mop (value output-stream)
   (with-json-object output-stream
     (dolist (def (closer-mop:class-slots (class-of value)) value)
