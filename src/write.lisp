@@ -278,7 +278,7 @@ The following arguments also control the behavior of the write.
          (with-output-to-string (output-stream)
            (print-json-value value output-stream)))
         ((eq t output-stream)
-         (print-json-value value *standard-output* output-stream))
+         (print-json-value value *standard-output*))
         ((and (streamp output-stream)
               (output-stream-p output-stream))
          (print-json-value value output-stream))
