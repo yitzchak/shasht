@@ -195,6 +195,22 @@ handled when calls to print-json-key-value are made."
   value)
 
 
+(defmethod print-json-value ((value array) output-stream)
+  (labels ((print-subarray (index dimensions)
+             (with-json-array output-stream
+               (loop with dimension = (car dimensions)
+                     with remaining-dimensions = (cdr dimensions)
+                     for pos below dimension
+                     for new-index = (+ pos (* index dimension))
+                     if remaining-dimensions
+                       do (print-json-delimiter output-stream)
+                          (print-subarray new-index remaining-dimensions)
+                     else
+                       do (print-json-value (row-major-aref value new-index)
+                                            output-stream)))))
+    (print-subarray 0 (array-dimensions value))))
+
+
 (defmethod print-json-value ((value symbol) output-stream)
   (cond
     ((member value *write-true-values* :test #'eql)
