@@ -126,18 +126,15 @@ handled when calls to print-json-key-value are made."
 
 (defmethod print-json-value ((value number) output-stream)
   (let* ((result (format nil "~,,,,,,'eE" value))
-         (decimal-position (position #\. result)))
-    (write-string (cond
-                    ((not decimal-position)
-                      result)
-                    ((= (1+ decimal-position) (length result))
-                      (subseq result 0 (1- (length result))))
-                    ((char= #\e (char result (1+ decimal-position)))
-                      (concatenate 'string (subseq result 0 decimal-position)
-                                   (subseq result (1+ decimal-position))))
-                    (t
-                      result))
-                  output-stream))
+         (decimal-position (position #\. result))
+         (exponent-position (position #\e result))
+         (end (length result)))
+    (when (and (equal exponent-position (- end 3))
+               (char= #\0 (char result (1- end))))
+      (decf end 3))
+    (when (equal decimal-position (1- end))
+      (decf end))
+    (write-string result output-stream :end end))
   value)
 
 
