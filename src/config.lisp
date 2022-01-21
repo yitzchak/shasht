@@ -44,4 +44,18 @@ are :hash-table, :alist or :plist.")
 (defvar *write-indent-string* "  "
   "The string to use when indenting objects and arrays.")
 
+(defvar *write-array-tags* '(:array)
+  "Indicators in the CAR of a list that indicate that the CDR or the list
+should be written as an array.")
+
+(defvar *write-object-alist-tags* '(:object-alist)
+  "Indicators in the CAR of a list that indicate that the CDR of the list
+is an alist and should be written as object.")
+
+(defvar *write-object-plist-tags* '(:object-plist)
+  "Indicators in the CAR of a list that indicate that the CDR of the list
+is an plist and should be written as object.")
+
 (defvar *symbol-name-function* #'symbol-name)
+
+

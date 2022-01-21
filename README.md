@@ -85,6 +85,15 @@ JSON data.
   an object. Initially set to `nil`. 
 - `*write-plist-as-object*` — If true then property lists will be written as an 
   object. Initially set to `nil`.
+- `*write-array-tags*` — A list of values whose appearance in the CAR of a list 
+  indicates the CDR of the list should be written as an array. Initially set to 
+  `'(:array)`.
+- `*write-object-alist-tags*` — A list of values whose appearance in the CAR of 
+  a list indicates the CDR of the list is an alist and should be written as an 
+  object. Initially set to `'(:object-alist)`.
+- `*write-object-plist-tags*` — A list of values whose appearance in the CAR of 
+  a list indicates the CDR of the list is a plist and should be written as an 
+  object. Initially set to `'(:object-plist)`.
   
 The actual serialization of JSON data is done by the generic function
 `print-json-value` which can be specialized for additional value types.
@@ -94,7 +103,8 @@ The actual serialization of JSON data is done by the generic function
 ```
 
 There is also a keyword variant `write-json*` which will set the various dynamic
-variables from supplied keywords.
+variables from supplied keywords and will default to the current dynamic value 
+of each keyword.
 
 ```lisp
 (write-json* value :stream t 
@@ -103,12 +113,16 @@ variables from supplied keywords.
                    :false-values '(nil :false) 
                    :null-values '(:null)
                    :empty-array-values '(:empty-array)
-                   :empty-object-values '(:empty-object) 
+                   :empty-object-values '(:empty-object)
+                   :array-tags '(:array)
+                   :object-alist-tags '(:object-alist) 
+                   :object-plist-tags '(:object-plist) 
                    :alist-as-object nil 
                    :plist-as-object nil
                    :pretty nil 
                    :indent-string "  ")
 ```
+### Serialization Helper Functions
 
 In order to facilitate extending the serialization facilities of shasht there
 are a number of helper functions available. To aid in the printing of JSON
@@ -126,6 +140,46 @@ the function `(print-json-key-value key value output-stream)` should be used
 to output a key value pair. Inside the body of `with-json-array` the function
 `(print-json-value value output-stream)` should be used to output a single
 value. Example usage can be seen in the source code.
+
+## Mapping of Data Types
+
+The mapping of types between Common Lisp and JSON is not one-to-one nor is it
+without ambiguity due to issues such as Common Lisp's treatment of `nil` as
+an empty list and as a false value. JSON also includes `null` which does not
+have an obvious representation in Common Lisp. Because of this, shasht makes
+certain choices in the default mapping of data types between Common Lisp and
+JSON that may not be ideal for all applications. shasht was primarily designed
+to be a good round-trip encoder/decoder for [common-lisp-jupyter][] in the
+network protocol of Jupyter.
+
+A brief explanation of the default mapping is given in the table below.
+
+| Common Lisp                            |   | JSON                               |
+|----------------------------------------|:-:|------------------------------------|
+| integer                                | ↔ | number without decimal or exponent |
+| float                                  | ↔ | number with decimal or exponent    |
+| ratio                                  | → | number with decimal or exponent    |
+| rational                               | → | number with decimal or exponent    |
+| string                                 | ↔ | string                             |
+| character                              | → | string                             |
+| pathname                               | → | string                             |
+| symbol not matching other mapping      | → | string                             |
+| vector                                 | ↔ | array                              |
+| multi-dimensional array                | → | nested array                       |
+| non-`nil` list                         | → | array                              |
+| hash table                             | ↔ | object                             |
+| standard object                        | → | object                             |
+| structure object                       | → | object                             |
+| `t`                                    | ↔ | true                               |
+| `:true`                                | → | true                               |
+| `nil`                                  | ↔ | false                              |
+| `:false`                               | → | false                              |
+| `:null`                                | ↔ | null                               |
+| `:empty-array`                         | → | []                                 |
+| `:empty-object`                        | → | {}                                 |
+| `'(:array 1 2 3)`                      | → | [1,2,3]                            |
+| `'(:object-alist ("a" . 1) ("b" . 2))` | → | {"a":1,"b":2}                      |
+| `'(:object-plist "a" 1 "b" 2)`         | → | {"a":1,"b":2}                      |
 
 ## Compliance
 
@@ -185,4 +239,5 @@ json-streams ██████████████████████�
 
 [ci]: https://github.com/yitzchak/shasht/actions/
 [ci-badge]: https://github.com/yitzchak/shasht/workflows/ci/badge.svg
+[common-lisp-jupyter]: https://github.com/yitzchak/common-lisp-jupyter/
 

@@ -156,15 +156,15 @@ handled when calls to print-json-key-value are made."
 
 (defmethod print-json-value ((value list) output-stream)
   (cond
-    ((eql :object-alist (car value))
+    ((member (car value) *write-object-alist-tags*)
       (with-json-object output-stream
         (trivial-do:doalist (k v (cdr value))
           (print-json-key-value value k v output-stream))))
-    ((eql :object-plist (car value))
+    ((member (car value) *write-object-plist-tags*)
       (with-json-object output-stream
         (trivial-do:doplist (k v (cdr value))
           (print-json-key-value value k v output-stream))))
-    ((eql :array (car value))
+    ((member (car value) *write-array-tags*)
       (with-json-array output-stream
         (dolist (element (cdr value))
           (print-json-value element output-stream))))
@@ -299,13 +299,21 @@ The following arguments also control the behavior of the write.
          (error 'type-error :datum output-stream :expected-type '(or null t stream)))))
 
 
-(defun write-json* (value &key (stream t) ascii-encoding (true-values '(t :true))
-                               (false-values '(nil :false)) (null-values '(:null))
-                               (empty-array-values '(:empty-array))
-                               (empty-object-values '(:empty-object)) alist-as-object
-                               plist-as-object pretty (indent-string "  "))
-"Write a JSON value. Writing is not influenced by the dynamic variables
-of write-json.
+(defun write-json* (value
+                    &key (stream t)
+                         ((:ascii-encoding *write-ascii-encoding*) *write-ascii-encoding*)
+                         ((:true-values *write-true-values*) *write-true-values*)
+                         ((:false-values *write-false-values*) *write-false-values*)
+                         ((:empty-array-values *write-empty-array-values*) *write-empty-array-values*)
+                         ((:empty-object-values *write-empty-object-values*) *write-empty-object-values*)
+                         ((:array-tags *write-array-tags*) *write-array-tags*)
+                         ((:object-alist-tags *write-object-alist-tags*) *write-object-alist-tags*)
+                         ((:object-plist-tags *write-object-plist-tags*) *write-object-plist-tags*)
+                         ((:alist-as-object *write-alist-as-object*) *write-alist-as-object*)
+                         ((:plist-as-object *write-plist-as-object*) *write-plist-as-object*)
+                         ((:pretty *print-pretty*) *print-pretty*)
+                         ((:indent-string *write-indent-string*) *write-indent-string*))
+"Write a JSON value.
 
 The following arguments also control the behavior of the write.
 
@@ -319,19 +327,17 @@ The following arguments also control the behavior of the write.
 * null-values - Values that will be written as a null token.
 * empty-array-values - Values that will be written as an empty array.
 * empty-object-values - Values that will be written as an empty object.
+* array-tags - A list of values whose appearance in the CAR of a list
+  indicates the CDR of the list should be written as an array.
+* object-alist-tags - A list of values whose appearance in the CAR of
+  a list indicates the CDR of the list is an alist and should be written as an
+  object.
+* object-plist - A list of values whose appearance in the CAR of
+  a list indicates the CDR of the list is a plist and should be written as an
+  object.
 * alist-as-object - If true then assocation lists will be written as an object.
 * plist-as-object - If true then property lists will be written as an object.
 * pretty - Use indentation in printing.
 * indent-string - The string to use when indenting objects and arrays."
-  (let ((*write-ascii-encoding* ascii-encoding)
-        (*write-true-values* true-values)
-        (*write-false-values* false-values)
-        (*write-null-values* null-values)
-        (*write-empty-array-values* empty-array-values)
-        (*write-empty-object-values* empty-object-values)
-        (*write-alist-as-object* alist-as-object)
-        (*write-plist-as-object* plist-as-object)
-        (*write-indent-string* indent-string)
-        (*print-pretty* pretty))
-    (write-json value stream)))
+  (write-json value stream))
 

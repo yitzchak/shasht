@@ -16,8 +16,8 @@
     #:*symbol-name-function*
     #:with-json-array
     #:with-json-object
-    #:with-json-key
     #:*write-alist-as-object*
+    #:*write-array-tags*
     #:*write-ascii-encoding*
     #:*write-empty-array-values*
     #:*write-empty-object-values*
@@ -27,6 +27,8 @@
     #:write-json*
     #:write-json-string
     #:*write-null-values*
+    #:*write-object-alist-tags*
+    #:*write-object-plist-tags*
     #:*write-plist-as-object*
     #:*write-true-values*))
 
