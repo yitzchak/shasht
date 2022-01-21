@@ -396,10 +396,13 @@ and formats used. The following arguments also control the behavior of the read.
 
 
 (defun read-json* (&key stream (eof-error t) eof-value single-value
-                        (true-value t) false-value (null-value :null) (array-format :vector)
-                        (object-format :hash-table) (float-format 'single-float))
-  "Read a JSON value. Reading is influenced by the keyword arguments and not by the dynamic
-variables of `read-json`.
+                        ((:true-value *read-default-true-value*) *read-default-true-value*)
+                        ((:false-value *read-default-false-value*) *read-default-false-value*)
+                        ((:null-value *read-default-null-value*) *read-default-null-value*)
+                        ((:array-format *read-default-array-format*) *read-default-array-format*)
+                        ((:object-format *read-default-object-format*) *read-default-object-format*)
+                        ((:float-format *read-default-float-format*) *read-default-float-format*))
+  "Read a JSON value.
 
 * stream - a stream, a string or t. If t is passed then *standard-input* is used.
 * eof-error - if true signal eof with error, otherwise return eof-value.
@@ -413,11 +416,5 @@ variables of `read-json`.
 * object-format - The format to use when reading an object. Current supported formats are
   :hash-table, :alist or :plist.
 * float-format - The format of floating point values."
-  (let ((*read-default-true-value* true-value)
-        (*read-default-false-value* false-value)
-        (*read-default-null-value* null-value)
-        (*read-default-array-format* array-format)
-        (*read-default-object-format* object-format)
-        (*read-default-float-format* float-format))
-    (read-json stream eof-error eof-value single-value)))
+  (read-json stream eof-error eof-value single-value))
 

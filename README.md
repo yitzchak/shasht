@@ -152,34 +152,131 @@ JSON that may not be ideal for all applications. shasht was primarily designed
 to be a good round-trip encoder/decoder for [common-lisp-jupyter][] in the
 network protocol of Jupyter.
 
-A brief explanation of the default mapping is given in the table below.
+A brief explanation of the default mapping is given in the table below. For 
+more detail regarding the mapping of individual types and how to configure
+that mapping see the sections following this table.
 
-| Common Lisp                            |   | JSON                               |
-|----------------------------------------|:-:|------------------------------------|
-| integer                                | ↔ | number without decimal or exponent |
-| float                                  | ↔ | number with decimal or exponent    |
-| ratio                                  | → | number with decimal or exponent    |
-| rational                               | → | number with decimal or exponent    |
-| string                                 | ↔ | string                             |
-| character                              | → | string                             |
-| pathname                               | → | string                             |
-| symbol not matching other mapping      | → | string                             |
-| vector                                 | ↔ | array                              |
-| multi-dimensional array                | → | nested array                       |
-| non-`nil` list                         | → | array                              |
-| hash table                             | ↔ | object                             |
-| standard object                        | → | object                             |
-| structure object                       | → | object                             |
-| `t`                                    | ↔ | true                               |
-| `:true`                                | → | true                               |
-| `nil`                                  | ↔ | false                              |
-| `:false`                               | → | false                              |
-| `:null`                                | ↔ | null                               |
-| `:empty-array`                         | → | []                                 |
-| `:empty-object`                        | → | {}                                 |
-| `'(:array 1 2 3)`                      | → | [1,2,3]                            |
-| `'(:object-alist ("a" . 1) ("b" . 2))` | → | {"a":1,"b":2}                      |
-| `'(:object-plist "a" 1 "b" 2)`         | → | {"a":1,"b":2}                      |
+| Common Lisp                            |     | JSON                               |
+|----------------------------------------|----:|------------------------------------|
+| integer                                | <-> | number without decimal or exponent |
+| float                                  | <-> | number with decimal or exponent    |
+| ratio                                  |  -> | number with decimal or exponent    |
+| rational                               |  -> | number with decimal or exponent    |
+| string                                 | <-> | string                             |
+| character                              |  -> | string                             |
+| pathname                               |  -> | string                             |
+| symbol not matching other mapping      |  -> | string                             |
+| vector                                 | <-> | array                              |
+| multi-dimensional array                |  -> | nested array                       |
+| non-`nil` list                         |  -> | array                              |
+| hash table                             | <-> | object                             |
+| standard object                        |  -> | object                             |
+| structure object                       |  -> | object                             |
+| `t`                                    | <-> | `true`                             |
+| `:true`                                |  -> | `true`                             |
+| `nil`                                  | <-> | `false`                            |
+| `:false`                               |  -> | `false`                            |
+| `:null`                                | <-> | `null`                             |
+| `:empty-array`                         |  -> | `[]`                               |
+| `:empty-object`                        |  -> | `{}`                               |
+| `'(:array 1 2 3)`                      |  -> | `[1,2,3]`                          |
+| `'(:object-alist ("a" . 1) ("b" . 2))` |  -> | `{"a":1,"b":2}`                    |
+| `'(:object-plist "a" 1 "b" 2)`         |  -> | `{"a":1,"b":2}`                    |
+
+### Mapping of Number Types
+
+The format of a number read from JSON when a decimal or an exponent is present
+in the number literal can be influenced with `cl:*read-default-float-format*`.
+This is the same behavior of `cl:read`. In order to read JSON numbers with large
+exponents one would need do something like the following.
+
+```common-lisp
+(shasht:read-json "[2.232e75]" :float-format 'double-float)
+```
+### Mapping of Array Types
+
+The dynamic variables `*read-default-array-format*`, 
+`*write-empty-array-values*`, and `*write-array-tags*` all influence the mapping
+of JSON arrays to Common Lisp vectors and lists. Common Lisp vectors and 
+multi-dimensional arrays are always writen as JSON arrays. By default JSON
+arrays are read as Common Lisp vectors. With the default settings only non-`nil`
+lists that don't satisfy some other mapping rule are written as JSON arrays.
+
+If one wants to use lists as the default JSON array format then 
+`*read-default-false-value*`, `*read-default-array-format*`, and 
+`*write-false-value*` will need to need to be set to appropriate values since
+in the default mapping `nil` maps to `false`. For example, the following 
+could be done.
+
+```common-lisp
+(let ((shasht:*read-default-false-value* :false)
+      (shasht:*read-default-array-format* :list)
+      (shasht:*write-false-values* '(:false)))
+ (shasht:read-json ...)
+ (shasht:write-json ...))
+```
+
+Lists with a CAR `eql` to a value in `*write-array-tags*`, 
+`*write-object-alist-tags*`, `*write-object-plist-tags*` will still be written
+as an array or object as appropriate. To completely disable this behavior the
+variables would need to be bound to `nil`. Or one could do the following.
+
+```common-lisp
+(shasht:write-json '(1 2 3) :false-value '(:false) :array-tags nil
+                            :object-alist-tags nil :object-plist-tags nil)
+```
+
+In this case the mapping for array types would become:
+
+| Common Lisp                            |     | JSON                               |
+|----------------------------------------|----:|------------------------------------|
+| vector                                 |  -> | array                              |
+| multi-dimensional array                |  -> | nested array                       |
+| list                                   | <-> | array                              |
+
+### Mapping of Object Types
+
+The dynamic variables `*read-default-object-format*`, `*write-alist-as-object*`,
+`*write-plist-as-object*`, `*write-empty-object-values*`, 
+`*write-object-alist-tags*`, and `*write-object-plist-tags*` all influence the 
+mapping of JSON objects to Common Lisp hash tables, alists, and plists. Common 
+Lisp hash tables are always written as JSON objects. By default JSON objects are 
+read as Common Lisp hash tables.
+
+In order to use alists as the default JSON object format the dynamic variables
+`*read-default-object-format*`, `*write-alist-as-object*`, 
+`*read-default-false-value*`, and `*write-false-values*` will need to be set
+to appropriate values. For example, the following would use alists as the
+default JSON object format and `:false` as the JSON `false` value.
+
+```common-lisp
+(let ((shasht:*read-default-object-format* :alist)
+      (shasht:*write-alist-as-object* t)
+      (shasht:*read-default-false-value* :false)
+      (shasht:*write-false-values* '(:false)))
+ (shasht:read-json ...)
+ (shasht:write-json ...))
+```
+
+In this case the mapping for object types would become:
+
+| Common Lisp                            |     | JSON                               |
+|----------------------------------------|----:|------------------------------------|
+| hash table                             |  -> | object                             |
+| alist                                  | <-> | object                             |
+| standard object                        |  -> | object                             |
+| structure object                       |  -> | object                             |
+
+The same could be accomplished for plists by doing the following.
+
+```common-lisp
+(let ((shasht:*read-default-object-format* :plist)
+      (shasht:*write-plist-as-object* t)
+      (shasht:*read-default-false-value* :false)
+      (shasht:*write-false-values* '(:false)))
+ (shasht:read-json ...)
+ (shasht:write-json ...))
+```
 
 ## Compliance
 
