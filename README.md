@@ -85,6 +85,10 @@ JSON data.
   an object. Initially set to `nil`. 
 - `*write-plist-as-object*` — If true then property lists will be written as an 
   object. Initially set to `nil`.
+- `*write-empty-array-values*` — A list of values that will be written as an 
+  empty array.
+- `*write-empty-object-values*` — A list of values that will be written as an 
+  empty object.
 - `*write-array-tags*` — A list of values whose appearance in the CAR of a list 
   indicates the CDR of the list should be written as an array. Initially set to 
   `'(:array)`.
@@ -140,6 +144,52 @@ the function `(print-json-key-value key value output-stream)` should be used
 to output a key value pair. Inside the body of `with-json-array` the function
 `(print-json-value value output-stream)` should be used to output a single
 value. Example usage can be seen in the source code.
+
+### JSON Array and Object Literals
+
+Sometimes using incremental serialization via the serialization helper functions
+is not the best fit for the application. For example, maybe the JSON needs to be
+assembled from various fragments and then analyzed before serialization. This
+happens in the Jupyter widget protocol. Binary data value in the JSON are
+extracted from the JSON and transmitted in binary form in order to decrease
+the network load.
+
+Since constructing hash tables purely for the purpose of JSON serialization is 
+a bit difficult and potentially memory wasteful, there are various keyword
+literals that can be used to construct JSON objects in order to avoid this
+situation. There are also literals for JSON arrays, although they may not be as
+useful. These literals exist in shasht mostly for consistency. The following
+shows some examples of the use of these literals.
+
+```
+* (shasht:write-json 
+    '(:object-alist ("a" . :empty-array) 
+                    ("b" . :empty-object) 
+                    ("c" . (:object-plist "d" 1 
+                                          "e" (:array 1 2 3)))))
+{
+  "a": [],
+  "b": {},
+  "c": {
+    "d": 1,
+    "e": [
+      1,
+      2,
+      3
+    ]
+  }
+}
+(:OBJECT-ALIST ("a" . :EMPTY-ARRAY) ("b" . :EMPTY-OBJECT)
+ ("c" :OBJECT-PLIST "d" 1 "e" (:ARRAY 1 2 3)))
+```
+
+The values and tags that indicate these literals can be configured via the 
+dynamic variables `*write-empty-array-values*`, `*write-empty-object-values*`,
+`*write-array-tags*`, `*write-object-alist-tags*`,
+and `*write-object-plist-tags*`.
+
+These literals forms are only meant for serialization and not for round-trip
+mapping. Therefore there is no way to read JSON in the same format.
 
 ## Mapping of Data Types
 
