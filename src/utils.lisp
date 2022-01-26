@@ -3,7 +3,6 @@
 
 (declaim (inline plistp alistp control-char-p integer-char-p ascii-printable-p
                  supplementary-plane-p high-surrogate-p)
-         (optimize (speed 3) (safety 0))
          (ftype (function (fixnum) boolean)
                 ascii-printable-p
                 supplementary-plane-p

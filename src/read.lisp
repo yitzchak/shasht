@@ -2,7 +2,6 @@
 
 
 (declaim (inline skip-whitespace)
-         #+(or)(optimize (speed 3) (safety 0))
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream boolean) string) read-json-string)
          (ftype (function (stream) number) read-json-number)
