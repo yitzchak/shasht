@@ -12,6 +12,8 @@
     #:*read-default-true-value*
     #:read-json
     #:read-json*
+    #:*read-length*
+    #:*read-level*
     #:shasht-parse-error
     #:*symbol-name-function*
     #:with-json-array
