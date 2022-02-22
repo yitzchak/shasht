@@ -1,25 +1,36 @@
 (in-package :shasht)
 
-
 (declaim (inline skip-whitespace)
          (ftype (function (stream) fixnum) read-encoded-char)
          (ftype (function (stream boolean) string) read-json-string)
          (ftype (function (stream) number) read-json-number)
          (ftype (function (stream character boolean boolean) boolean) expect-char))
 
-
 (define-condition shasht-parse-error (parse-error)
+  ())
+
+(define-condition shasht-invalid-char (shasht-parse-error)
   ((expected
-     :reader shasht-parse-error-expected
+     :reader shasht-invalid-char-expected
      :initarg :expected
      :initform nil)
    (char
-     :reader shasht-parse-error-char
+     :reader shasht-invalid-char-char
      :initarg :char
      :type character))
   (:report (lambda (condition stream)
-             (format stream "Unexpected character ~A found during parsing."
-                     (shasht-parse-error-char condition)))))
+             (format stream "Unexpected character ~S found during parsing~
+~@[, expected ~{~#[~;~S~;~a or ~S~:;~@{~S~#[~;, or ~:;, ~]~}~]~}~]."
+                     (shasht-invalid-char-char condition)
+                     (shasht-invalid-char-expected condition)))))
+
+(define-condition shasht-read-level-exceeded (parse-error)
+  ()
+  (:report "Read level exceeded during parsing."))
+
+(define-condition shasht-read-length-exceeded (parse-error)
+  ()
+  (:report "Read length exceeded during parsing."))
 
 (defstruct reader-state
   (type :value)
@@ -36,7 +47,7 @@
     (cond
       ((and (null (setf ch (read-char input-stream nil)))
             error-p)
-        (error 'shasht-parse-error :char ch :expected (list value)))
+        (error 'shasht-invalid-char :char ch :expected (list value)))
       ((null ch)
         (return nil))
       ((char= value ch)
@@ -45,7 +56,7 @@
             (member ch '(#\space #\newline #\return #\tab) :test #'char=))
         (go repeat))
       (error-p
-        (error 'shasht-parse-error :char ch :expected (list value)))
+        (error 'shasht-invalid-char :char ch :expected (list value)))
       (t
         (unread-char ch input-stream)
         (return nil)))))
@@ -71,7 +82,7 @@
    repeat
     (when (or (null (setf ch (read-char input-stream nil)))
               (null (setf digit (digit-char-p ch 16))))
-      (error 'shasht-parse-error :char ch :expected (list #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
+      (error 'shasht-invalid-char :char ch :expected (list #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
     (setf result (logior result (ash digit (decf count 4))))
     (when (zerop count)
       (return result))
@@ -91,14 +102,14 @@
     (cond
       ((or (null (setf ch (read-char input-stream nil)))
            (control-char-p ch))
-        (error 'shasht-parse-error :char ch))
+        (error 'shasht-invalid-char :char ch))
       ((char= #\" ch)
         (return result))
       ((char/= #\\ ch)
         (vector-push-extend ch result)
         (go read-next)))
     (cond ((null (setf ch (read-char input-stream nil)))
-           (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u)))
+           (error 'shasht-invalid-char :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u)))
           ((char= #\b ch)
            (vector-push-extend #\backspace result)
            (go read-next))
@@ -124,7 +135,7 @@
            (vector-push-extend #\\ result)
            (go read-next))
           ((char/= #\u ch)
-           (error 'shasht-parse-error :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
+           (error 'shasht-invalid-char :char ch :expected (list #\b #\f #\n #\r #\t #\" #\/ #\\ #\u))))
     (cond
       ((typep (setf codepoint (read-encoded-char input-stream)) 'high-surrogate)
         #+cmucl (vector-push-extend (code-char codepoint) result) ; CMUCL is UTF-16
@@ -151,13 +162,13 @@
              (type (or null integer) digit)
              (type (or null character) ch))
     (cond ((null (setf ch (read-char input-stream nil)))
-           (error 'shasht-parse-error :expected '(#\- #\. #\e #\E #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
+           (error 'shasht-invalid-char :expected '(#\- #\. #\e #\E #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
           ((char= #\- ch)
            (setf mantissa-accum #'-)
            (setf ch (read-char input-stream nil))))
     (cond
       ((null ch)
-        (error 'shasht-parse-error :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
+        (error 'shasht-invalid-char :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((char= #\0 ch)
         (cond
           ((char= #\. (setf ch (read-char input-stream nil)))
@@ -171,7 +182,7 @@
       ((setf digit (digit-char-p ch))
         (setf mantissa (funcall mantissa-accum digit)))
       (t
-        (error 'shasht-parse-error :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
+        (error 'shasht-invalid-char :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
    read-int-digit
     (cond
       ((null (setf ch (read-char input-stream nil)))
@@ -189,12 +200,12 @@
    read-frac
     (cond
       ((null (setf ch (read-char input-stream nil)))
-        (error 'shasht-parse-error :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
+        (error 'shasht-invalid-char :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((setf digit (digit-char-p ch))
         (decf frac-exponent)
         (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit)))
       (t
-        (error 'shasht-parse-error :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
+        (error 'shasht-invalid-char :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
    read-frac-digit
     (cond
       ((null (setf ch (read-char input-stream nil)))
@@ -211,7 +222,7 @@
    read-exp
     (cond
       ((null (setf ch (read-char input-stream nil)))
-        (error 'shasht-parse-error :char ch :expected '(#\+ #\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
+        (error 'shasht-invalid-char :char ch :expected '(#\+ #\- #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((char= #\+ ch)
         (setf ch (read-char input-stream nil)))
       ((char= #\- ch)
@@ -222,7 +233,7 @@
             (setf digit (digit-char-p ch)))
         (setf exponent (funcall exponent-accum (* 10 exponent) digit)))
       (t
-        (error 'shasht-parse-error :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
+        (error 'shasht-invalid-char :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
    read-exp-digit
     (cond
       ((null (setf ch (read-char input-stream nil))))
@@ -269,7 +280,7 @@ and formats used. The following arguments also control the behavior of the read.
                       (push (make-reader-state :value value) expression-stack))
                      (t
                        (when (equal *read-length* (incf (reader-state-length reader-state)))
-                         (error "Read length exceeded"))
+                         (error 'shasht-read-length-exceeded))
                        (cond ((and (eql :array (reader-state-type reader-state))
                                    (eql :list *read-default-array-format*))
                               (push value (reader-state-value reader-state)))
@@ -287,7 +298,7 @@ and formats used. The following arguments also control the behavior of the read.
                               (setf (gethash (reader-state-key reader-state) (reader-state-value reader-state)) value))))))
              (begin ()
                (when (minusp (decf level))
-                 (error "Read level exceeded")))
+                 (error 'shasht-read-level-exceeded)))
              (end ()
                (incf level))
              (array-begin ()
@@ -362,14 +373,14 @@ and formats used. The following arguments also control the behavior of the read.
                (expect-char input-stream #\l nil t)
                (value *read-default-null-value*))
               (t
-               (error 'shasht-parse-error :char ch)))
+               (error 'shasht-invalid-char :char ch)))
        read-separator
         (skip-whitespace input-stream)
         (cond ((null objects-p) ; We aren't in an object or an array so exit.
                (when single-value-p
                  (let ((ch (read-char input-stream nil)))
                    (when ch
-                     (error 'shasht-parse-error :char ch))))
+                     (error 'shasht-invalid-char :char ch))))
                (return-from read-json (reader-state-value (first expression-stack))))
               ((expect-char input-stream #\, nil nil) ; If there is a comma then there is another value or key/value.
                (go read-next))

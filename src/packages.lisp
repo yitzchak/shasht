@@ -14,7 +14,12 @@
     #:read-json*
     #:*read-length*
     #:*read-level*
+    #:shasht-invalid-char
+    #:shasht-invalid-char-char
+    #:shasht-invalid-char-expected
     #:shasht-parse-error
+    #:shasht-read-length-exceeded
+    #:shasht-read-level-exceeded
     #:*symbol-name-function*
     #:with-json-array
     #:with-json-object
