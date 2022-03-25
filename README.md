@@ -36,6 +36,10 @@ data.
 - `*read-default-object-format*` — The default format to use when reading an
   object. Current supported formats are `:hash-table`, `:alist` or `:plist`.
   Initially set to `:hash-table`.
+- `*read-length*` — The maximum number of values in an array or an object.
+  Initially set to `nil` which disables length checking.
+- `*read-level*` — The maximum number of levels to allow during reading for
+  arrays and objects. Initially set to `nil` which disables level checking.
   
 There is also a keyword variant `read-json*` which will set the various dynamic
 variables from supplied keywords.
@@ -50,7 +54,9 @@ variables from supplied keywords.
             :null-value :null
             :array-format :vector 
             :object-format :hash-table
-            :float-format 'single-float)
+            :float-format 'single-float
+            :length nil
+            :level nil)
 ```
 
 ## Writing
