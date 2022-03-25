@@ -17,6 +17,12 @@ are :vector or :list.")
   "The default format to use when reading an object. Current supported formats
 are :hash-table, :alist or :plist.")
 
+(defvar *read-length* nil
+  "The maximum number of values in an array or an object.")
+
+(defvar *read-level* nil
+  "The maximum number of levels to allow during reading.")
+
 (defvar *write-ascii-encoding* nil
   "If true then any non ASCII values will be encoded using Unicode escape sequences.")
 
