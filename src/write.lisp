@@ -133,7 +133,15 @@ handled when calls to print-json-key-value are made."
       (decf end 3))
     (when (equal decimal-position (1- end))
       (decf end))
-    (write-string result output-stream :end end))
+    (when (and decimal-position
+               (equal (1+ decimal-position) exponent-position))
+      (setf result (concatenate 'string
+                                (subseq result 0 decimal-position)
+                                (subseq result exponent-position)))
+      (decf end))
+    (if (zerop end)
+        (write-string "0" output-stream)
+        (write-string result output-stream :end end)))
   value)
 
 
