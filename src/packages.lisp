@@ -22,6 +22,7 @@
     #:shasht-read-level-exceeded
     #:*symbol-name-function*
     #:with-json-array
+    #:with-json-key
     #:with-json-object
     #:*write-alist-as-object*
     #:*write-array-tags*
