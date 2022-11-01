@@ -2,7 +2,6 @@
 
 
 (declaim (inline make-newline-strine)
-         (ftype (function (t t t stream) t) print-json-key-value)
          (ftype (function (string stream) string) write-json-string))
 
 
