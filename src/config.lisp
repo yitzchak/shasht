@@ -64,4 +64,6 @@ is an plist and should be written as object.")
 
 (defvar *symbol-name-function* #'symbol-name)
 
+(defvar *read-default-ht-test* 'equal
+  "The :test designator for make-hashtable (used when reading objects into hash-tables).")
 

@@ -311,7 +311,7 @@ and formats used. The following arguments also control the behavior of the read.
                (begin)
                (push (make-reader-state :type :object
                                         :value (when (eql *read-default-object-format* :hash-table)
-                                                 (make-hash-table :test #'equal)))
+                                                 (make-hash-table :test *read-default-ht-test*)))
                      expression-stack))
              (object-key (key)
                (setf (reader-state-key (first expression-stack)) key))
@@ -402,7 +402,8 @@ and formats used. The following arguments also control the behavior of the read.
                         ((:object-format *read-default-object-format*) *read-default-object-format*)
                         ((:float-format *read-default-float-format*) *read-default-float-format*)
                         ((:length *read-length*) *read-length*)
-                        ((:level *read-level*) *read-level*))
+                        ((:level *read-level*) *read-level*)
+                        ((:ht-test *read-default-ht-test*) *read-default-ht-test*))
   "Read a JSON value.
 
 * stream - a stream, a string or t. If t is passed then *standard-input* is used.
