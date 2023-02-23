@@ -23,6 +23,9 @@ are :hash-table, :alist or :plist.")
 (defvar *read-level* nil
   "The maximum number of levels to allow during reading.")
 
+(defvar *read-hash-table-test* 'equal
+  "The :test designator for make-hash-table (used when reading objects into hash-tables).")
+
 (defvar *write-ascii-encoding* nil
   "If true then any non ASCII values will be encoded using Unicode escape sequences.")
 
@@ -63,7 +66,4 @@ is an alist and should be written as object.")
 is an plist and should be written as object.")
 
 (defvar *symbol-name-function* #'symbol-name)
-
-(defvar *read-default-ht-test* 'equal
-  "The :test designator for make-hashtable (used when reading objects into hash-tables).")
 
