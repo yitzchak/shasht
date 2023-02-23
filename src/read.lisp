@@ -261,7 +261,7 @@
 (defun read-json (&optional (input-stream-or-string t) (eof-error-p t) eof-value single-value-p)
   "Read a JSON value. Reading is influenced by the dynamic variables
 *read-default-true-value*, *read-default-false-value*, *read-default-null-value*,
-*read-default-array-format*, *read-default-object-format* and
+*read-default-array-format*, *read-default-object-format*, *read-hash-table-test* and
 common-lisp:*read-default-float-format* which each determine the default values
 and formats used. The following arguments also control the behavior of the read.
 
@@ -311,7 +311,7 @@ and formats used. The following arguments also control the behavior of the read.
                (begin)
                (push (make-reader-state :type :object
                                         :value (when (eql *read-default-object-format* :hash-table)
-                                                 (make-hash-table :test #'equal)))
+                                                 (make-hash-table :test *read-hash-table-test*)))
                      expression-stack))
              (object-key (key)
                (setf (reader-state-key (first expression-stack)) key))
@@ -402,7 +402,8 @@ and formats used. The following arguments also control the behavior of the read.
                         ((:object-format *read-default-object-format*) *read-default-object-format*)
                         ((:float-format *read-default-float-format*) *read-default-float-format*)
                         ((:length *read-length*) *read-length*)
-                        ((:level *read-level*) *read-level*))
+                        ((:level *read-level*) *read-level*)
+                        ((:hash-table-test *read-hash-table-test*) *read-hash-table-test*))
   "Read a JSON value.
 
 * stream - a stream, a string or t. If t is passed then *standard-input* is used.
@@ -416,6 +417,7 @@ and formats used. The following arguments also control the behavior of the read.
   :vector or :list.
 * object-format - The format to use when reading an object. Current supported formats are
   :hash-table, :alist or :plist.
-* float-format - The format of floating point values."
+* float-format - The format of floating point values.
+* hash-table-test - Value for the make-hash-table :test designator"
   (read-json stream eof-error eof-value single-value))
 
