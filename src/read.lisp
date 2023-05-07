@@ -171,7 +171,9 @@
         (error 'shasht-invalid-char :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((char= #\0 ch)
         (cond
-          ((char= #\. (setf ch (read-char input-stream nil)))
+          ((null (setf ch (read-char input-stream nil)))
+            (go finish))
+          ((char= #\. ch)
             (go read-frac))
           ((or (char= #\e ch)
                (char= #\E ch))
