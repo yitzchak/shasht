@@ -172,7 +172,7 @@
       ((char= #\0 ch)
         (cond
           ((null (setf ch (read-char input-stream nil)))
-            (go finish))
+            (return mantissa))
           ((char= #\. ch)
             (go read-frac))
           ((or (char= #\e ch)
