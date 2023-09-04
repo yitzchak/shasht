@@ -41,7 +41,7 @@ jobs:
         brew install clozure-cl sbcl
 
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Download Quicklisp and setup source registry
       run: |
