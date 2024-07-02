@@ -1,10 +1,12 @@
-(asdf:defsystem #:shasht
+(asdf:defsystem "shasht"
   :description "JSON reading and writing for the Kzinti."
   :author "Tarn W. Burton"
   :license "MIT"
-  :depends-on
-    (:trivial-do :closer-mop)
-  :in-order-to ((asdf:test-op (asdf:test-op #:shasht/test)))
+  :depends-on ("trivial-do"
+               "closer-mop"
+               "quaviver/liebler"
+               "quaviver/schubfach")
+  :in-order-to ((asdf:test-op (asdf:test-op "shasht/test")))
   :components
     ((:module src
       :serial t
@@ -21,12 +23,13 @@
     #-asdf3 ())
 
 
-(asdf:defsystem #:shasht/test
+(asdf:defsystem "shasht/test"
   :description "Test suite for shasht"
   :author "Tarn W. Burton"
   :license "MIT"
-  :depends-on
-    (:alexandria :shasht :parachute)
+  :depends-on ("alexandria"
+               "shasht"
+               "parachute")
   :perform (asdf:test-op (op c) (uiop:symbol-call :parachute :test :shasht/test))
   :components
     ((:module src

@@ -67,3 +67,9 @@ is an plist and should be written as object.")
 
 (defvar *symbol-name-function* #'symbol-name)
 
+(defclass quaviver-client
+    (quaviver/schubfach:client quaviver/liebler:client)
+  ())
+
+(defvar *quaviver-client*
+  (make-instance 'quaviver-client))

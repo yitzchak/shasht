@@ -153,19 +153,17 @@
   (prog ((mantissa 0)
          (exponent 0)
          (frac-exponent 0)
-         (mantissa-accum #'+)
-         (exponent-accum #'+)
+         (sign 1)
+         (exponent-sign 1)
          digit
          ch)
-    (declare (type integer mantissa exponent frac-exponent)
-             (type function mantissa-accum exponent-accum)
-             (type (or null integer) digit)
+    (declare (type (or null integer) digit)
              (type (or null character) ch))
     (cond ((null (setf ch (read-char input-stream nil)))
            (error 'shasht-invalid-char :expected '(#\- #\. #\e #\E #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
           ((char= #\- ch)
-           (setf mantissa-accum #'-)
-           (setf ch (read-char input-stream nil))))
+           (setf sign -1
+                 ch (read-char input-stream nil))))
     (cond
       ((null ch)
         (error 'shasht-invalid-char :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
@@ -182,7 +180,7 @@
             (unread-char ch input-stream)
             (return 0))))
       ((setf digit (digit-char-p ch))
-        (setf mantissa (funcall mantissa-accum digit)))
+        (setf mantissa digit))
       (t
         (error 'shasht-invalid-char :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
    read-int-digit
@@ -194,7 +192,7 @@
            (char= #\E ch))
         (go read-exp))
       ((setf digit (digit-char-p ch))
-        (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit))
+        (setf mantissa (+ (* 10 mantissa) digit))
         (go read-int-digit))
       (t
         (unread-char ch input-stream)
@@ -205,7 +203,7 @@
         (error 'shasht-invalid-char :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)))
       ((setf digit (digit-char-p ch))
         (decf frac-exponent)
-        (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit)))
+        (setf mantissa (+ (* 10 mantissa) digit)))
       (t
         (error 'shasht-invalid-char :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
    read-frac-digit
@@ -216,7 +214,7 @@
            (char= #\E ch)))
       ((setf digit (digit-char-p ch))
         (decf frac-exponent)
-        (setf mantissa (funcall mantissa-accum (* 10 mantissa) digit))
+        (setf mantissa (+ (* 10 mantissa) digit))
         (go read-frac-digit))
       (t
         (unread-char ch input-stream)
@@ -229,23 +227,28 @@
         (setf ch (read-char input-stream nil)))
       ((char= #\- ch)
         (setf ch (read-char input-stream nil))
-        (setf exponent-accum #'-)))
+        (setf exponent-sign -1)))
     (cond
       ((and ch
             (setf digit (digit-char-p ch)))
-        (setf exponent (funcall exponent-accum (* 10 exponent) digit)))
+        (setf exponent (+ (* 10 exponent) digit)))
       (t
         (error 'shasht-invalid-char :char ch :expected '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))))
    read-exp-digit
     (cond
       ((null (setf ch (read-char input-stream nil))))
       ((setf digit (digit-char-p ch))
-        (setf exponent (funcall exponent-accum (* 10 exponent) digit))
+        (setf exponent (+ (* 10 exponent) digit))
         (go read-exp-digit))
       (t
         (unread-char ch input-stream)))
    finish
-    (return (* mantissa (expt (coerce 10 *read-default-float-format*) (+ frac-exponent exponent))))))
+     (return (quaviver:integer-float *quaviver-client*
+                                     *read-default-float-format*
+                                     10
+                                     mantissa
+                                     (+ frac-exponent (* exponent-sign exponent))
+                                     sign))))
 
 (defun frob-input-stream (input-stream-or-string)
   (cond ((eq t input-stream-or-string)

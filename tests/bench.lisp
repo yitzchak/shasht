@@ -1,4 +1,4 @@
-(ql:quickload '(:cl-json :jonathan :json-streams :jsown :shasht :st-json :yason :cl-spark :the-cost-of-nothing))
+(ql:quickload '(:cl-json :jonathan :json-streams :jsown :shasht :st-json :yason :cl-spark :the-cost-of-nothing :com.inuoe.jzon))
 
 (defparameter +json-string+ "{\"key1\": \"value\\n\",
 \"key2\":1,\"key3\" :[\"Hello \\u2604\",  1.2e-34 ,true,
@@ -24,6 +24,10 @@
   (jsown:parse +json-string+))
 
 
+(defun jzon/r ()
+  "jzon"
+  (com.inuoe.jzon:parse +json-string+))
+
 (defun shasht/r ()
   "shasht"
   (shasht:read-json +json-string+))
@@ -44,6 +48,7 @@
         #'jonathan/r
         #'json-streams/r
         #'jsown/r
+        #'jzon/r
         #'shasht/r
         #'st-json/r
         #'yason/r))
@@ -107,6 +112,9 @@
   "jsown"
   (jsown:to-json +jsown-obj+))
 
+(defun jzon/w ()
+  "jzon"
+  (com.inuoe.jzon:stringify +json-hash-list+ :stream nil))
 
 (defun shasht/w ()
   "shasht"
@@ -130,6 +138,7 @@
         #'jonathan/w
         #'json-streams/w
         #'jsown/w
+        #'jzon/w
         #'shasht/w
         #'st-json/w
         #'yason/w))
@@ -165,6 +174,9 @@
   "jsown"
   (jsown:to-json (jsown:parse +json-string+)))
 
+(defun jzon/rw ()
+  "jzon"
+  (com.inuoe.jzon:stringify (com.inuoe.jzon:parse +json-string+) :stream nil))
 
 (defun shasht/rw ()
   "shasht"
@@ -188,6 +200,7 @@
         #'jonathan/rw
         #'json-streams/rw
         #'jsown/rw
+        #'jzon/rw
         #'shasht/rw
         #'st-json/rw
         #'yason/rw))
