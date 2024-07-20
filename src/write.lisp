@@ -310,6 +310,7 @@ The following arguments also control the behavior of the write.
                          ((:ascii-encoding *write-ascii-encoding*) *write-ascii-encoding*)
                          ((:true-values *write-true-values*) *write-true-values*)
                          ((:false-values *write-false-values*) *write-false-values*)
+                         ((:null-values *write-null-values*) *write-null-values*)
                          ((:empty-array-values *write-empty-array-values*) *write-empty-array-values*)
                          ((:empty-object-values *write-empty-object-values*) *write-empty-object-values*)
                          ((:array-tags *write-array-tags*) *write-array-tags*)
