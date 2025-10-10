@@ -7,64 +7,33 @@ on:
     branches: [ master ]
   pull_request:
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   test:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.lisp }}
+    defaults:
+      run:
+        shell: bash -l {0}
     strategy:
+      fail-fast: false
       matrix:
-        os:
-        - macos-latest
-        - ubuntu-latest
-
-    # run the job on every combination of "os" above
-    runs-on: ${{ matrix.os }}
-
+        lisp:
+        - abcl
+        - ccl
+        - clasp
+        - ecl
+        - sbcl
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/yitzchak/archlinux-cl:latest
     steps:
-    # tell git not to convert line endings
-    - name: Install Windows dependencies
-      if: matrix.os == 'windows-latest'
+    - name: Checkout Repository
+      uses: actions/checkout@v5
+    - name: Setup Lisp
       run: |
-        git config --global core.autocrlf false
-
-    - name: Install Ubuntu dependencies
-      if: matrix.os == 'ubuntu-latest'
+        make-rc
+        asdf-add
+    - name: Run Tests
       run: |
-        sudo apt-get install sbcl
-
-    - name: Install MacOS dependencies
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install clozure-cl sbcl
-
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Download Quicklisp and setup source registry
-      run: |
-        curl -kLO https://beta.quicklisp.org/quicklisp.lisp
-        mkdir -p $HOME/.config/common-lisp
-        echo "(:source-registry (:tree (\"$PWD\")) :inherit-configuration)" >$HOME/.config/common-lisp/source-registry.conf
-
-    - name: Install Quicklisp for SBCL
-      run: |
-        sbcl --non-interactive --load scripts/install.lisp
-
-    - name: Install Quicklisp for CCL
-      if: matrix.os == 'macos-latest'
-      run: |
-        ccl64 --batch --load scripts/install.lisp
-
-    - name: Run SBCL tests
-      run: |
-        sbcl --non-interactive --eval "(asdf:test-system :shasht)"
-
-    - name: Run CCL tests
-      if: matrix.os == 'macos-latest'
-      run: |
-        ccl64 --batch --eval "(asdf:test-system :shasht)"
+        lisp -i ${{ matrix.lisp }} -e "(asdf:test-system :shasht)"
 
         
