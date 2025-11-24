@@ -27,7 +27,7 @@ jobs:
       image: ghcr.io/yitzchak/archlinux-cl:latest
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
     - name: Setup Lisp
       run: |
         make-rc
